@@ -58,21 +58,17 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
     }
 
     private String map2Ddl(UserObject userObject) {
-        String type = userObject.getType();
-        if (type.equals("DBMS JOB")) {
-            boolean asSysDba = userObject.getSchema() != null;
-            return userObjectDao.findDbmsJobDDL(userObject.getName(), asSysDba);
+        if (userObject.getType().equals("DBMS JOB")) {
+            return userObjectDao.findDbmsJobDDL(userObject.getName());
         }
-        if (type.equals("PUBLIC DATABASE LINK")) {
-            return userObjectDao.findDDLInPublicScheme(map2TypeForDBMS(type), userObject.getName());
+        if (userObject.getType().equals("PUBLIC DATABASE LINK")) {
+            return userObjectDao.findDDLInPublicScheme(map2TypeForDBMS(userObject.getType()), userObject.getName());
         }
-        String res = userObjectDao.findPrimaryDDL(map2TypeForDBMS(type), userObject.getName(), userObject.getSchema());
-        Set<String> dependedTypes = dependencies.get(type);
+        String res = userObjectDao.findPrimaryDDL(map2TypeForDBMS(userObject.getType()), userObject.getName());
+        Set<String> dependedTypes = dependencies.get(userObject.getType());
         if (dependedTypes != null) {
             for (String dependedType : dependedTypes) {
-                if (ddlFormatter.getIsMorePrettyFormat())
-                    res += ddlFormatter.newline;
-                res += userObjectDao.findDependentDLLByTypeName(dependedType, userObject.getName(), userObject.getSchema());
+                res += userObjectDao.findDependentDLLByTypeName(dependedType, userObject.getName());
             }
         }
         return ddlFormatter.formatDDL(res);
@@ -93,46 +89,23 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
     }
 
     private String map2FileName(UserObject userObject) {
-        String res = map2FolderName(userObject.getType()) + "/" + userObject.getName();
-        String schema = userObject.getSchema();
-        if (schema != null)
-            res = schema + "/" + res;
-        if (ddlFormatter.getFilenameCase().equals("lower"))
-            return res.toLowerCase() + ".sql";
-        else if (ddlFormatter.getFilenameCase().equals("upper"))
-		    return res.toUpperCase() + ".sql";
-		else
-			return res + ".sql";
+        String res = map2FolderName(userObject.getType()) + "/" + userObject.getName() + ".sql";
+        return res.toLowerCase();
     }
 
     private String map2FolderName(String type) {
-        if (type.equals("DATABASE LINK")) {
-            if (ddlFormatter.getFilenameCase().equals("lower"))
-                return "db_links";
-            else
-                return "DATABASE_LINKS";
-        }
-        if (type.equals("PUBLIC DATABASE LINK")) {
-            if (ddlFormatter.getFilenameCase().equals("lower"))
-                return "public_db_links";
-            else
-                return "PUBLIC_DATABASE_LINKS";
-        }
+        if (type.equals("DATABASE LINK"))
+            return "db_links";
+        if (type.equals("PUBLIC DATABASE LINK"))
+            return "public_db_links";
         type = type.toLowerCase().replaceAll(" ", "_");
         if (type.endsWith("x") || type.endsWith("s")) {
-            type += "es";
-        } else if (type.endsWith("y")) {
-            type = type.substring(0, type.length() - 1) + "ies";
-        } else {
-            type += "s";
+            return type + "es";
         }
-
-        if (ddlFormatter.getFilenameCase().equals("lower"))
-            return type.toLowerCase();
-        else if (ddlFormatter.getFilenameCase().equals("upper"))
-            return type.toUpperCase();
-		else
-			return type;
+        if (type.endsWith("y")) {
+            return type.substring(0, type.length() - 1) + "ies";
+        }
+        return type + "s";
     }
 
     public void setExcludes(Map excludes) {

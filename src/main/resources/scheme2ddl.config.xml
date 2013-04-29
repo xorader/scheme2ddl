@@ -11,15 +11,12 @@
 
     <bean id="dataSource" class="oracle.jdbc.pool.OracleDataSource">
         <property name="URL" value="jdbc:oracle:thin:@MyOracleHost:1521:MyDB"/>
-        <!-- You can choose a DBA user. For example: value="sys as sysdba" -->
         <property name="user" value="scott"/>
         <property name="password" value="tiger"/>
         <property name="connectionCachingEnabled" value="true"/>
     </bean>
 
     <bean id="reader" class="com.googlecode.scheme2ddl.UserObjectReader">
-        <!-- a comma separated list of schemas for processing. Workes only for DBA users -->
-        <!-- property name="processSchemas" value="SCOTT"/ -->
         <property name="userObjectDao" ref="userObjectDao"/>
         <property name="processPublicDbLinks" value="true"/>
         <property name="processDmbsJobs" value="true"/>
@@ -49,10 +46,6 @@
          Formatting option can be unsafe because it based on regexp rules -->
         <property name="noFormat" value="false"/>
         <property name="statementOnNewLine" value="true"/>
-        <!-- Enabled 'isMorePrettyFormat' option disables the 'statementOnNewLine' option -->
-        <property name="isMorePrettyFormat" value="false"/>
-		<!-- 'filenameCase' can be 'lower' (default) or 'upper' -->
-        <property name="filenameCase" value="lower"/>
     </bean>
 
 
@@ -100,11 +93,6 @@
                 <value>OBJECT_GRANT</value>
             </set>
         </entry>
-        <entry key="TYPE">
-            <set>
-                <value>OBJECT_GRANT</value>
-            </set>
-        </entry>
     </util:map>
 
     <!-- Key is the object type,
@@ -124,26 +112,13 @@
             </set>
         </entry>
         -->
-
-
-        <entry key="TABLE PARTITION">
-            <set>
-                <value>*</value>
-            </set>
-        </entry>
-
-        <!--Excluded, because all them persist in PACKAGE, TYPE and TABLE -->
+        <!--Excluded, because all them persist in PACKAGE and TYPE -->
         <entry key="PACKAGE BODY">
             <set>
                 <value>*</value>
             </set>
         </entry>
         <entry key="TYPE BODY">
-            <set>
-                <value>*</value>
-            </set>
-        </entry>
-        <entry key="INDEX">
             <set>
                 <value>*</value>
             </set>
