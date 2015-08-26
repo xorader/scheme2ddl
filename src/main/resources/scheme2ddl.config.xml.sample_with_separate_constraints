@@ -229,7 +229,7 @@
     <!-- Below tables data will exlude from export processing -->
     <util:list id="excludesDataTables">
         <value>TAB3</value>
-        <value>SCOTT.TAB1</value>   <!-- SCOTT.TAB1 dont excludes, because contains in includesDataTables -->
+        <value>SCOTT.TAB2</value>   <!-- SCOTT.TAB2 dont excludes, because contains in includesDataTables -->
     </util:list>
 
 
