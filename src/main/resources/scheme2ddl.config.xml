@@ -45,6 +45,7 @@
         <!-- In all filters (includesDataTables, excludesDataTables, excludes) will used the full object name
              like "SCHEMA_NAME.OBJECT_NAME", if processSchemas is not empty  -->
         <entry key="isUsedSchemaNamesInFilters" value="false"/>
+        <entry key="replaceSequenceValues" valuse="false"/>
     </util:map>
 
     <!-- http://download.oracle.com/docs/cd/B19306_01/appdev.102/b14258/d_metada.htm#BGBJBFGE -->

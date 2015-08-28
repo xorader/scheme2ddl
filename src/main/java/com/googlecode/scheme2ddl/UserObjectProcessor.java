@@ -31,6 +31,7 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
     private Map<String, Properties>     includesDataTables;
     private boolean isUsedSchemaNamesInFilters = false;
     private boolean isExportDataTable = false;
+    private boolean replaceSequenceValues = false;
 
     public UserObject process(UserObject userObject) throws Exception {
 
@@ -130,13 +131,16 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
 
     private String map2Ddl(UserObject userObject) {
         if (userObject.getType().equals("DBMS JOB")) {
-            return userObjectDao.findDbmsJobDDL(userObject.getName());
+            return ddlFormatter.formatDDL(userObjectDao.findDbmsJobDDL(userObject.getName()));
         } else if (userObject.getType().equals("PUBLIC DATABASE LINK")) {
-            return userObjectDao.findDDLInPublicScheme(map2TypeForDBMS(userObject.getType()), userObject.getName());
+            return ddlFormatter.formatDDL(userObjectDao.findDDLInPublicScheme(map2TypeForDBMS(userObject.getType()), userObject.getName()));
         } else if (userObject.getType().equals("USER")) {
             return ddlFormatter.formatDDL(userObjectDao.generateUserDDL(userObject.getName()));
         }
         String res = userObjectDao.findPrimaryDDL(map2TypeForDBMS(userObject.getType()), userObject.getName());
+        if (userObject.getType().equals("SEQUENCE") && replaceSequenceValues) {
+            res = ddlFormatter.replaceActualSequenceValueWithOne(res);
+        }
         Set<String> dependedTypes = dependencies.get(userObject.getType());
         if (dependedTypes != null) {
             for (String dependedType : dependedTypes) {
@@ -199,13 +203,21 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
         if (settingsUserObjectProcessor.get("isUsedSchemaNamesInFilters") != null
                 && settingsUserObjectProcessor.get("isUsedSchemaNamesInFilters"))
         {
-            isUsedSchemaNamesInFilters = true;
+            this.isUsedSchemaNamesInFilters = true;
         }
         if (settingsUserObjectProcessor.get("isExportDataTable") != null
                 && settingsUserObjectProcessor.get("isExportDataTable"))
         {
-            isExportDataTable = true;
+            this.isExportDataTable = true;
+        }
+        if (settingsUserObjectProcessor.get("replaceSequenceValues") != null
+                && settingsUserObjectProcessor.get("replaceSequenceValues"))
+        {
+            this.replaceSequenceValues = true;
         }
     }
 
+    public void setReplaceSequenceValues(boolean replaceSequenceValues) {
+        this.replaceSequenceValues = replaceSequenceValues;
+    }
 }

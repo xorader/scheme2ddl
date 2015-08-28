@@ -9,7 +9,9 @@
 
 
     <bean id="dataSource" class="oracle.jdbc.pool.OracleDataSource">
-        <property name="URL" value="jdbc:oracle:thin:@MyOracleHost:1521:MyDB"/>
+        <!-- You need create the "/etc/oracle/tnsnames.ora" file with 'SQL_TEST_HOST' net service name for test by 'make jar-test' -->
+        <!-- More info about tnsnames.ora look at http://docs.oracle.com/cd/B28359_01/network.111/b28317/tnsnames.htm -->
+        <property name="URL" value="jdbc:oracle:thin:@SQL_TEST_HOST"/>
         <!-- You can choose a DBA user. For example: value="sys as sysdba" -->
         <property name="user" value="scott"/>
         <property name="password" value="tiger"/>
@@ -18,12 +20,12 @@
 
     <!-- list of schema for processing, used only if oracle user connected as sysdba-->
     <util:list id="schemaList">
-        <!--<value>SCOTT</value>-->
-        <!--<value>HR</value>-->
+        <value>SCOTT</value>
+        <!--value>SER_MON</value-->
     </util:list>
 
     <bean id="reader" class="com.googlecode.scheme2ddl.UserObjectReader" scope="step">
-        <property name="processPublicDbLinks" value="true"/>
+        <property name="processPublicDbLinks" value="false"/>
         <property name="processDmbsJobs" value="true"/>
         <!-- The "processUserAndPermissions" workes only for sysdba users -->
         <property name="processUserAndPermissions" value="true"/>
@@ -41,16 +43,16 @@
     <!-- settings for processing SQL objects -->
     <util:map id="settingsUserObjectProcessor">
         <!-- Enables exporting of data tables (and LOB data too in separate files) -->
-        <entry key="isExportDataTable" value="false"/>
+        <entry key="isExportDataTable" value="true"/>
         <!-- In all filters (includesDataTables, excludesDataTables, excludes) will used the full object name
              like "SCHEMA_NAME.OBJECT_NAME", if processSchemas is not empty  -->
-        <entry key="isUsedSchemaNamesInFilters" value="false"/>
-        <entry key="replaceSequenceValues" valuse="false"/>
+        <entry key="isUsedSchemaNamesInFilters" value="true"/>
+        <entry key="replaceSequenceValues" value="true"/>
     </util:map>
 
     <!-- http://download.oracle.com/docs/cd/B19306_01/appdev.102/b14258/d_metada.htm#BGBJBFGE -->
     <util:map id="transformParams_for_dbms_metadata">
-        <entry key="SEGMENT_ATTRIBUTES" value="FALSE"/>
+        <entry key="SEGMENT_ATTRIBUTES" value="TRUE"/>
         <entry key="SQLTERMINATOR" value="TRUE"/>
         <!-- "CONSTRAINTS_AS_ALTER":
              If TRUE, emit table constraints as separate ALTER TABLE (and, if necessary, CREATE INDEX) statements.
@@ -69,7 +71,7 @@
         <!-- Check it to true if you don't want apply formatting on DMBS_OUTPUT. -->
         <property name="noFormat" value="false"/>
         <!-- The 'isMorePrettyFormat' option adds a smart whitespace indentation and clever new lines  -->
-        <property name="isMorePrettyFormat" value="false"/>
+        <property name="isMorePrettyFormat" value="true"/>
     </bean>
 
     <!-- rules for construct filenames  -->
@@ -91,11 +93,11 @@
             Keywords escaping is not supported.
             Word in Mixed Case is not keyword
         -->
-        <property name="template" value="types_plural/object_name.ext"/>
-        <property name="templateForSysDBA" value="SCHEMA/types_plural/object_name.ext"/>
+        <property name="template" value="TYPES_PLURAL/OBJECT_NAME.ext"/>
+        <property name="templateForSysDBA" value="SCHEMA/TYPES_PLURAL/OBJECT_NAME.ext"/>
 
-        <property name="templateDataLob" value="types_plural/object_name/row_id.ext"/>
-        <property name="templateDataLobForSysDBA" value="SCHEMA/types_plural/object_name/row_id.ext"/>
+        <property name="templateDataLob" value="TYPES_PLURAL/OBJECT_NAME/row_id.ext"/>
+        <property name="templateDataLobForSysDBA" value="SCHEMA/TYPES_PLURAL/OBJECT_NAME/row_id.ext"/>
 
         <!-- File extension map rules.
         Use predefined 'TOAD' or 'PL/SQL Developer' mapping or create custom mapping -->
@@ -105,6 +107,9 @@
     <util:map id="sql_by_default">
         <entry key="DEFAULT">
             <value>sql</value>
+        </entry>
+        <entry key="DBMS_JOB">
+            <value>job</value>
         </entry>
     </util:map>
 
@@ -150,7 +155,7 @@
                 <value>COMMENT</value>
                 <!--value>INDEX</value-->
                 <value>OBJECT_GRANT</value>
-                <value>TRIGGER</value>
+                <!--value>TRIGGER</value-->
                 <value>CONSTRAINT</value>
                 <value>REF_CONSTRAINT</value>
             </set>
@@ -223,13 +228,14 @@
             >0 - limit exporting table rows by this value
     -->
     <util:map id="includesDataTables">
-        <entry key="SCOTT.TAB2"><util:properties><prop key="maxRowsExport">3</prop></util:properties></entry>
-        <entry key="*TAB1"><util:properties/></entry>
+        <entry key="SCOTT.TAB2"><util:properties><prop key="maxRowsExport">3</prop></util:properties></entry>   <!-- The "maxRowsExport" setting limits number of rows  -->
+
+        <entry key="*"><util:properties><prop key="maxRowsExport">200</prop></util:properties></entry>
     </util:map>
 
     <!-- Below tables data will exlude from export processing -->
     <util:list id="excludesDataTables">
-        <value>TAB3</value>
+        <value>SCOTT.TAB3</value>
         <value>SCOTT.TAB2</value>   <!-- SCOTT.TAB2 dont excludes, because contains in includesDataTables -->
     </util:list>
 
@@ -263,13 +269,13 @@
         <!--For removing system types http://www.sql.ru/forum/actualthread.aspx?bid=3&tid=542661&hl=-->
         <entry key="TYPE">
             <set>
-                <value>SYSTP*</value>
+                <value>*.SYSTP*</value>
                 <value>*==</value>
                 <!--a pipelined function that returns a PL/SQL collection type Oracle will automagically generate a compatible SQL collection type. Exclude them-->
-                <value>SYS_PLSQL_*</value>
-                <!-- require set the 'isUsedSchemaNamesInFilters' to 'true'
+                <!--value>SYS_PLSQL_*</value-->
+                <!-- require set the 'isUsedSchemaNamesInFilters' to 'true' -->
                 <value>CTXSYS.SYS_PLSQL*</value>
-                -->
+                <value>*.SYS_PLSQL_*</value>
             </set>
         </entry>
         <entry key="EDITION"><set><value>*</value></set></entry>
@@ -278,16 +284,21 @@
         <entry key="EVALUATION CONTEXT"><set><value>*</value></set></entry>
         <entry key="RULE SET"><set><value>*</value></set></entry>
         <entry key="PROGRAM"><set><value>*</value></set></entry>
-        <!-- require set the 'isUsedSchemaNamesInFilters' to 'true'
+        <!-- require set the 'isUsedSchemaNamesInFilters' to 'true' -->
         <entry key="TABLE">
             <set>
                 <value>ORDDATA.ORDDCM_PREFS_DEF_VALUES_TAB</value>
                 <value>ORDDATA.ORDDCM_PREFS_VALID_VALUES_TAB</value>
                 <value>SYSMAN.MGMT_DELTA_SUMMARY_ERRORS</value>
                 <value>SYSMAN.PARAM_VALUES_TAB</value>
+                <value>ESCORT.AAAAAAAAA_DEL1</value>
+                <value>ESCORT.*_REPL_DATE</value>
+                <value>ESCORT.LRP_RESPONSIBLE_HISTORY_RD</value>
+                <value>AIS_CTP.LOAD_FILE</value>
+                <value>*DR$LOAD_FILE_IDX$*</value>
+                <value>*NESTED_CHAIRS</value>
             </set>
         </entry>
-        -->
     </util:map>
 
 

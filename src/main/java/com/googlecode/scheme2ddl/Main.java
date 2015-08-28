@@ -35,6 +35,7 @@ public class Main {
     private static boolean justPrintVersion = false;
     private static boolean justTestConnection = false;
     private static boolean skipPublicDbLinks = false;
+    private static boolean replaceSequenceValues = false;
     private static String customConfigLocation = null;
     private static String defaultConfigLocation = "scheme2ddl.config.xml";
     private static String dbUrl = null;
@@ -114,6 +115,11 @@ public class Main {
             fileNameConstructor.afterPropertiesSet();
         } else {
             System.out.println("Execute for user schema only: " + userName);
+        }
+
+        if (replaceSequenceValues) {
+            UserObjectProcessor userobjectprocessor = (UserObjectProcessor) context.getBean("processor");
+            userobjectprocessor.setReplaceSequenceValues(replaceSequenceValues);
         }
     }
 
@@ -197,8 +203,8 @@ public class Main {
             fileNameConstructor = (FileNameConstructor) context.getBean("fileNameConstructor");
             fileNameConstructor.afterPropertiesSet();
             //for compatability with old config without fileNameConstructor bean
-            UserObjectProcessor userObjectProcessor = (UserObjectProcessor) context.getBean("processor");
-            userObjectProcessor.setFileNameConstructor(fileNameConstructor);
+            UserObjectProcessor userobjectprocessor = (UserObjectProcessor) context.getBean("processor");
+            userobjectprocessor.setFileNameConstructor(fileNameConstructor);
         }
         return fileNameConstructor;
     }
@@ -334,6 +340,8 @@ public class Main {
         msg.append("  -s, --schemas,          a comma separated list of schemas for processing" + lSep);
         msg.append("                          (works only if connected to oracle as sysdba)" + lSep);
         msg.append("  -c, --config,           path to scheme2ddl config file (xml)" + lSep);
+        msg.append("  -rsv,                      replace actual sequence values with 1 " + lSep);
+        msg.append("  --replace-sequence-values, " + lSep);
         msg.append("  -tc,--test-connection,  test db connection available" + lSep);
         msg.append("  -version,               print version info and exit" + lSep);
         System.out.println(msg.toString());
@@ -376,6 +384,8 @@ public class Main {
                 i++;
             } else if (arg.equals("-tc") || arg.equals("--test-connection")) {
                 justTestConnection = true;
+            }   else if ((arg.equals("-rsv") || arg.equals("--replace-sequence-values"))) {
+                replaceSequenceValues = true;
             } else if (arg.equals("-c") || arg.equals("--config")) {
                 customConfigLocation = args[i + 1];
                 i++;

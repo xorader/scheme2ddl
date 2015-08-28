@@ -45,6 +45,7 @@
         <!--property name="dependenciesInSeparateFiles" ref="dependenciesInSeparateFiles"/-->
         <!--property name="excludesDataTables" ref="excludesDataTables"/-->
         <!--property name="includesDataTables" ref="includesDataTables"/-->
+        <property name="replaceSequenceValues" value="false"/>
     </bean>
 
 

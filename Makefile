@@ -10,7 +10,11 @@ target/scheme2ddl-2.2.4-SNAPSHOT.jar : pom.xml $(SRC_FILES)
 
 clean:
 	mvn clean
-	rm dependency-reduced-pom.xml
+	rm -f dependency-reduced-pom.xml
+	rm -rf output
 
-#.INTERMEDIATE: target
+# You need create the "/etc/oracle/tnsnames.ora" file with 'SQL_TEST_HOST' net service name for test by 'make jar-test'
+# More info about tnsnames.ora look at http://docs.oracle.com/cd/B28359_01/network.111/b28317/tnsnames.htm
+jar-test:
+	java -Doracle.net.tns_admin=/etc/oracle -jar target/scheme2ddl-2.2.4-SNAPSHOT.jar --config src/test/jar_run/scheme2ddl-scott-with-data.config.xml
 
