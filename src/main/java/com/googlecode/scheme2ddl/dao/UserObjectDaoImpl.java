@@ -326,18 +326,20 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
     }
 
     public void applyTransformParameters(Connection connection) throws SQLException {
+        String sql = "BEGIN ";
         for (String parameterName : transformParams.keySet()) {
-            connection.setAutoCommit(false);
-            // setBoolean doesn't convert java boolean to pl/sql boolean, so used such query building
-            String sql = String.format(
-                    "BEGIN " +
-                            " dbms_metadata.set_transform_param(DBMS_METADATA.SESSION_TRANSFORM,'%s',%s);" +
-                            " END;", parameterName, transformParams.get(parameterName));
-            PreparedStatement ps = connection.prepareCall(sql);
-            //  ps.setString(1, parameterName);
-            //  ps.setBoolean(2, transformParams.get(parameterName) );  //In general this doesn't work
-            ps.execute();
+            sql += String.format(
+                " dbms_metadata.set_transform_param(DBMS_METADATA.SESSION_TRANSFORM,'%s',%s);",
+                parameterName, transformParams.get(parameterName));
         }
+        sql += " END;";
+        connection.setAutoCommit(false);
+        PreparedStatement ps = connection.prepareCall(sql);
+        //  ps.setString(1, parameterName);
+        //    setBoolean doesn't convert java boolean to pl/sql boolean, so used such query building
+        //  ps.setBoolean(2, transformParams.get(parameterName) );  //In general this doesn't work
+        ps.execute();
+
         /*
          * Need to (for INDEXES):
          *      dbms_metadata.SET_FILTER(some_handle, 'SYSTEM_GENERATED', FALSE);
