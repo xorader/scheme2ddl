@@ -45,7 +45,7 @@
         <!-- In all filters (includesDataTables, excludesDataTables, excludes) will used the full object name
              like "SCHEMA_NAME.OBJECT_NAME", if processSchemas is not empty  -->
         <entry key="isUsedSchemaNamesInFilters" value="false"/>
-        <entry key="replaceSequenceValues" valuse="false"/>
+        <entry key="replaceSequenceValues" value="false"/>
     </util:map>
 
     <!-- http://download.oracle.com/docs/cd/B19306_01/appdev.102/b14258/d_metada.htm#BGBJBFGE -->
@@ -148,9 +148,9 @@
         <entry key="TABLE">
             <set>
                 <value>COMMENT</value>
-                <!--value>INDEX</value-->
+                <value>INDEX</value>
                 <value>OBJECT_GRANT</value>
-                <value>TRIGGER</value>
+                <!--value>TRIGGER</value--> <!-- Exporting as separate object -->
                 <value>CONSTRAINT</value>
                 <value>REF_CONSTRAINT</value>
             </set>
@@ -164,7 +164,7 @@
         <entry key="MATERIALIZED VIEW">
             <set>
                 <value>COMMENT</value>
-                <!--value>INDEX</value-->
+                <value>INDEX</value>
                 <value>MATERIALIZED_VIEW_LOG</value>
                 <value>OBJECT_GRANT</value>
             </set>
@@ -210,6 +210,7 @@
             <set>
                 <value>CONSTRAINT</value>
                 <value>REF_CONSTRAINT</value>
+                <value>INDEX</value>
             </set>
         </entry>
     </util:map>
@@ -259,7 +260,8 @@
         <!--Excluded, because all them persist in PACKAGE and TYPE -->
         <entry key="PACKAGE BODY"><set><value>*</value></set></entry>
         <entry key="TYPE BODY"><set><value>*</value></set></entry>
-        <!-- Require include "INDEX" for exporting them in separate files: <entry key="INDEX"><set><value>*</value></set></entry> -->
+        <!-- Indexes export in dependencies -->
+        <entry key="INDEX"><set><value>*</value></set></entry>
         <!--For removing system types http://www.sql.ru/forum/actualthread.aspx?bid=3&tid=542661&hl=-->
         <entry key="TYPE">
             <set>
@@ -285,6 +287,8 @@
                 <value>ORDDATA.ORDDCM_PREFS_VALID_VALUES_TAB</value>
                 <value>SYSMAN.MGMT_DELTA_SUMMARY_ERRORS</value>
                 <value>SYSMAN.PARAM_VALUES_TAB</value>
+                <value>*DR$LOAD_FILE_IDX$*</value>
+                <value>*NESTED_CHAIRS</value>
             </set>
         </entry>
         -->

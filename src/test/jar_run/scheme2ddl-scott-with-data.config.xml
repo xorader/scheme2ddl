@@ -21,11 +21,11 @@
     <!-- list of schema for processing, used only if oracle user connected as sysdba-->
     <util:list id="schemaList">
         <value>SCOTT</value>
-        <!--value>SER_MON</value-->
+        <!--value>HR</value-->
     </util:list>
 
     <bean id="reader" class="com.googlecode.scheme2ddl.UserObjectReader" scope="step">
-        <property name="processPublicDbLinks" value="false"/>
+        <property name="processPublicDbLinks" value="true"/>
         <property name="processDmbsJobs" value="true"/>
         <!-- The "processUserAndPermissions" workes only for sysdba users -->
         <property name="processUserAndPermissions" value="true"/>
@@ -153,9 +153,9 @@
         <entry key="TABLE">
             <set>
                 <value>COMMENT</value>
-                <!--value>INDEX</value-->
+                <value>INDEX</value>
                 <value>OBJECT_GRANT</value>
-                <!--value>TRIGGER</value-->
+                <!--value>TRIGGER</value--> <!-- Exporting as separate object -->
                 <value>CONSTRAINT</value>
                 <value>REF_CONSTRAINT</value>
             </set>
@@ -169,7 +169,7 @@
         <entry key="MATERIALIZED VIEW">
             <set>
                 <value>COMMENT</value>
-                <!--value>INDEX</value-->
+                <value>INDEX</value>
                 <value>MATERIALIZED_VIEW_LOG</value>
                 <value>OBJECT_GRANT</value>
             </set>
@@ -215,6 +215,7 @@
             <set>
                 <value>CONSTRAINT</value>
                 <value>REF_CONSTRAINT</value>
+                <value>INDEX</value>
             </set>
         </entry>
     </util:map>
@@ -265,7 +266,8 @@
         <!--Excluded, because all them persist in PACKAGE and TYPE -->
         <entry key="PACKAGE BODY"><set><value>*</value></set></entry>
         <entry key="TYPE BODY"><set><value>*</value></set></entry>
-        <!-- Require include "INDEX" for exporting them in separate files: <entry key="INDEX"><set><value>*</value></set></entry> -->
+        <!-- Indexes export in dependencies -->
+        <entry key="INDEX"><set><value>*</value></set></entry>
         <!--For removing system types http://www.sql.ru/forum/actualthread.aspx?bid=3&tid=542661&hl=-->
         <entry key="TYPE">
             <set>
@@ -291,10 +293,6 @@
                 <value>ORDDATA.ORDDCM_PREFS_VALID_VALUES_TAB</value>
                 <value>SYSMAN.MGMT_DELTA_SUMMARY_ERRORS</value>
                 <value>SYSMAN.PARAM_VALUES_TAB</value>
-                <value>ESCORT.AAAAAAAAA_DEL1</value>
-                <value>ESCORT.*_REPL_DATE</value>
-                <value>ESCORT.LRP_RESPONSIBLE_HISTORY_RD</value>
-                <value>AIS_CTP.LOAD_FILE</value>
                 <value>*DR$LOAD_FILE_IDX$*</value>
                 <value>*NESTED_CHAIRS</value>
             </set>

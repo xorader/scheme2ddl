@@ -262,32 +262,68 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         });
     }
 
-    public String findDependentDLLByTypeName(final String type, final String name) {
+    public String findDependentDLLByTypeName(final String type, final String parent_name, final String parent_type) {
 
         return (String) getJdbcTemplate().execute(new ConnectionCallback() {
-            final String query = "select dbms_metadata.get_dependent_ddl(?, ?, ?) from dual";
+            /*
+             * Instead of using the "select dbms_metadata.get_dependent_ddl()" query, we use
+             * the construcion "DBMS_METADATA.OPEN(); ... DBMS_METADATA.FETCH_CLOB(); DBMS_METADATA.CLOSE(handle);".
+             * This is need for "DBMS_METADATA.SET_FILTER(handle,'SYSTEM_GENERATED', false);" for
+             * exclude system-generated indexes/triggers. Example of system-generated index can
+             * get by creating BLOB/CLOB column for any table.
+             *
+             * Example and info taked from:
+             *  - http://docs.oracle.com/cd/E11882_01/server.112/e22490/metadata_api.htm
+             *  - http://docs.oracle.com/cd/E11882_01/appdev.112/e40758/d_metada.htm
+             */
+            final String query =
+            "DECLARE\n" +
+            "  result CLOB := '';\n" +
+            "  msg CLOB;\n" +
+            "  handle NUMBER;\n" +
+            "  tr_handle NUMBER;\n" +
+            "BEGIN\n" +
+            "  handle := DBMS_METADATA.OPEN('" + type + "');" +
+            (schemaName != null ? ("  DBMS_METADATA.SET_FILTER(handle,'BASE_OBJECT_SCHEMA', '" + schemaName + "');") : "") +
+            "  dbms_metadata.SET_FILTER(handle,'BASE_OBJECT_TYPE', '" + parent_type + "');" +
+            "  dbms_metadata.SET_FILTER(handle,'BASE_OBJECT_NAME', '" + parent_name + "');" +
+            //  -- Exclude system-generated indexes/triggers
+            (type.equalsIgnoreCase("INDEX") || type.equalsIgnoreCase("TRIGGER") ?  "  dbms_metadata.SET_FILTER(handle,'SYSTEM_GENERATED', false);" : "") +
+            "  tr_handle := DBMS_METADATA.ADD_TRANSFORM(handle,'DDL');" +
+            //  -- inherits session-level parameters
+            //  -- (takes parameters from 'SET_TRANSFORM_PARAM(DBMS_METADATA.SESSION_TRANSFORM,...' exhibited before)
+            "  DBMS_METADATA.SET_TRANSFORM_PARAM(tr_handle, 'INHERIT', true);\n" +
+            //  -- Fetch the objects:
+            "  LOOP\n" +
+            "    msg := DBMS_METADATA.FETCH_CLOB(handle);" +
+            "    EXIT WHEN msg IS NULL;" +
+            "    result := result || msg;" +
+            "  END LOOP;\n" +
+            "  DBMS_METADATA.CLOSE(handle);\n" +
+            ":result := result;\n" +
+            "END;";
 
             public Object doInConnection(Connection connection) throws SQLException, DataAccessException {
+                java.sql.Clob clob;
                 applyTransformParameters(connection);
-                PreparedStatement ps = connection.prepareStatement(query);
-                ps.setString(1, type);
-                ps.setString(2, name);
-                ps.setString(3, isLaunchedByDBA ? schemaName : null);
-                ResultSet rs;
+                //log.info(String.format("qq %s - %s => %s", parent_name, parent_type, type));
+                CallableStatement cs = connection.prepareCall(query);
+                cs.registerOutParameter(1, java.sql.Types.CLOB);
                 try {
-                    rs = ps.executeQuery();
+                    cs.execute();
                 } catch (SQLException e) {
-                    log.trace(String.format("Error during select dbms_metadata.get_dependent_ddl(%s, %s) from dual", type, name));
+                    log.trace(String.format("Error during take the '%s' depends of the '%s' object with type '%s'", type, parent_name, parent_type));
                     return "";
                 }
                 try {
-                    if (rs.next()) {
-                        return rs.getString(1);
-                    }
+                    clob = cs.getClob(1);
                 } finally {
-                    rs.close();
+                    cs.close();
                 }
-                return null;
+                if (clob == null)
+                    return "";
+                //log.info(String.format("result get dep %s - %s ==> %s: %s", parent_name, parent_type, type, clob.getSubString(1, (int) clob.length())));
+                return clob.getSubString(1, (int) clob.length());
             }
         });
     }
@@ -335,17 +371,7 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         sql += " END;";
         connection.setAutoCommit(false);
         PreparedStatement ps = connection.prepareCall(sql);
-        //  ps.setString(1, parameterName);
-        //    setBoolean doesn't convert java boolean to pl/sql boolean, so used such query building
-        //  ps.setBoolean(2, transformParams.get(parameterName) );  //In general this doesn't work
         ps.execute();
-
-        /*
-         * Need to (for INDEXES):
-         *      dbms_metadata.SET_FILTER(some_handle, 'SYSTEM_GENERATED', FALSE);
-         * but require to rewrite many code for it (for "some_handle").
-         * So, will continue workes with INDEXES like objects (not like "Dependent DDL")
-         */
     }
 
     public void setTransformParams(Map<String, Boolean> transformParams) {

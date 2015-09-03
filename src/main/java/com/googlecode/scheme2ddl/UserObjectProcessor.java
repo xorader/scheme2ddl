@@ -144,7 +144,7 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
         Set<String> dependedTypes = dependencies.get(userObject.getType());
         if (dependedTypes != null) {
             for (String dependedType : dependedTypes) {
-                String resultDDL = userObjectDao.findDependentDLLByTypeName(dependedType, userObject.getName());
+                String resultDDL = userObjectDao.findDependentDLLByTypeName(dependedType, userObject.getName(), userObject.getType());
 
                 if (dependenciesInSeparateFiles != null
                         && dependenciesInSeparateFiles.get(userObject.getType()) != null

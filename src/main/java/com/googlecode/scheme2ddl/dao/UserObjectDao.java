@@ -22,7 +22,7 @@ public interface UserObjectDao {
 
     String findPrimaryDDL(String type, String name);
 
-    String findDependentDLLByTypeName(String type, String name);
+    String findDependentDLLByTypeName(String type, String parent_name, String parent_type);
 
     String findDDLInPublicScheme(String type, String name);
 
