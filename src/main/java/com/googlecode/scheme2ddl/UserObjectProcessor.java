@@ -43,10 +43,10 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
         userObject.setFileName(fileNameConstructor.map2FileName(userObject));
 
         if (isExportDataTable && userObject.getType().equals("TABLE")) {
-            int maxRowsExport = getMaxRowsExportOfTable(userObject);
+            TableExportProperty tableProperty = getTableExportProperties(userObject);
 
-            if (maxRowsExport != -1) {
-                userObjectDao.exportDataTable(userObject, maxRowsExport, fileNameConstructor);
+            if (tableProperty.maxRowsExport != -1) {
+                userObjectDao.exportDataTable(userObject, tableProperty.maxRowsExport, tableProperty.where, fileNameConstructor);
             } else {
                 log.debug(String.format("Skipping processing of data table of: %s ", userObject));
             }
@@ -82,16 +82,27 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
         return false;
     }
 
+    class TableExportProperty {
+        public int maxRowsExport;
+        public String where;
+
+        public TableExportProperty(int maxRowsExport, String where) {
+            this.maxRowsExport = maxRowsExport;
+            this.where = where;
+        }
+    }
+
     /* http://docs.oracle.com/javase/1.5.0/docs/api/java/util/Properties.html
      * http://docs.oracle.com/javase/6/docs/api/java/util/Map.html
      *
-     * Return values:
+     * Return values in TableExportProperty.maxRowsExport:
      *  0  - need to export unlimited rows of the object's table
      *  -1 - do not export the whole table data
      *  >0 - limit exporting table rows by this value
      */
-    private int getMaxRowsExportOfTable(UserObject userObject) {
+    private TableExportProperty getTableExportProperties(UserObject userObject) {
         String fullTableName;
+        TableExportProperty result = new TableExportProperty(0, null);
 
         if (isUsedSchemaNamesInFilters && userObject.getSchema() != null) {
             fullTableName = userObject.getSchema() + "." + userObject.getName();
@@ -104,23 +115,26 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
                 if (matchesByPattern(fullTableName, tableNamePattern)) {
                     Properties props = includesDataTables.get(tableNamePattern);
                     String maxRowsExport = props.getProperty("maxRowsExport");
+                    result.where = props.getProperty("where");
 
                     if (maxRowsExport == null) {
-                        return 0;
+                        return result;
                     }
-                    return Integer.parseInt(maxRowsExport);
+                    result.maxRowsExport = Integer.parseInt(maxRowsExport);
+                    return result;
                 }
             }
         }
 
         if (excludesDataTables == null || excludesDataTables.size() == 0)
-            return 0;
+            return result;
 
         for (String tableNamePattern : excludesDataTables) {
             if (matchesByPattern(fullTableName, tableNamePattern))
-                return -1;
+                result.maxRowsExport = -1;
+                return result;
         }
-        return 0;
+        return result;
     }
 
 

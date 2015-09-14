@@ -404,7 +404,7 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         }
     }
 
-    public void exportDataTable(UserObject userObject, final int maxRowsExport, final FileNameConstructor fileNameConstructor) {
+    public void exportDataTable(UserObject userObject, final int maxRowsExport, final String add_where, final FileNameConstructor fileNameConstructor) {
         final String tableName = userObject.getName();
         final String schema_name = schemaName;
         final String preparedTemplate = fileNameConstructor.getPreparedTemplate();
@@ -413,7 +413,7 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         String result_execute = (String) getJdbcTemplate().execute(new ConnectionCallback() {
             public String doInConnection(Connection connection) throws SQLException, DataAccessException {
                 try {
-                    generateInsertStatements(connection, schema_name, tableName, maxRowsExport, preparedTemplate, preparedTemplateDataLob, outputPath);
+                    generateInsertStatements(connection, schema_name, tableName, maxRowsExport, add_where, preparedTemplate, preparedTemplateDataLob, outputPath);
                 } catch (IOException e) {
                     logger.error("Error with write to data file of '" + tableName + "' table: " + e.getMessage(), e);
                 }
@@ -434,7 +434,7 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
      *        - http://stackoverflow.com/questions/8348427/how-to-write-update-oracle-blob-in-a-reliable-way
      *        - http://stackoverflow.com/questions/862355/overcomplicated-oracle-jdbc-blob-handling
      */
-    private static void generateInsertStatements(Connection conn, String schema_name, String tableName, final int maxRowsExport, final String preparedTemplate, final String preparedTemplateDataLob, final String outputPath)
+    private static void generateInsertStatements(Connection conn, String schema_name, String tableName, final int maxRowsExport, final String add_where, final String preparedTemplate, final String preparedTemplateDataLob, final String outputPath)
             throws SQLException, DataAccessException, IOException
     {
         final String fullTableName;
@@ -452,9 +452,13 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         String primaryKeyColumn = null;
         boolean isPrimaryKeyColumnSearched = false;
         int numRows = 0;
+        String query_string = "SELECT * FROM " + fullTableName;
 
         Statement stmt = conn.createStatement();
-        ResultSet rs = stmt.executeQuery("SELECT * FROM " + fullTableName);
+        if (add_where != null) {
+            query_string += " WHERE " + add_where;
+        }
+        ResultSet rs = stmt.executeQuery(query_string);
         ResultSetMetaData rsmd = rs.getMetaData();
         int numColumns = rsmd.getColumnCount();
         int[] columnTypes = new int[numColumns];

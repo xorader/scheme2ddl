@@ -1,7 +1,7 @@
 # scheme2ddl project
 #
 
-VERSION := 2.2.4-x1
+VERSION := 2.2.4-x2
 SRC_FILES := $(shell find src -type f -print)
 
 all : target/scheme2ddl-$(VERSION).jar

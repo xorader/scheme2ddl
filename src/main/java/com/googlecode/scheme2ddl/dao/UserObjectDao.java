@@ -30,7 +30,7 @@ public interface UserObjectDao {
 
     String generateUserDDL(String name);
 
-    void exportDataTable(UserObject userObject, int maxRowsExport, FileNameConstructor fileNameConstructor);
+    void exportDataTable(UserObject userObject, int maxRowsExport, String add_where, FileNameConstructor fileNameConstructor);
 
     boolean isConnectionAvailable();
 

@@ -222,9 +222,11 @@
             0  - (default value) need to export unlimited rows of the object's table
             -1 - do not export the whole table data
             >0 - limit exporting table rows by this value
+         The "where" setting used for "WHERE" argument for matched tables.
     -->
     <util:map id="includesDataTables">
         <entry key="SCOTT.TAB2"><util:properties><prop key="maxRowsExport">3</prop></util:properties></entry>
+        <entry key="SCOTT.DEPT"><util:properties><prop key="where">lower(loc) like '%o%'</prop></util:properties></entry>
         <entry key="*TAB1"><util:properties/></entry>
     </util:map>
 

@@ -25,7 +25,7 @@
     </util:list>
 
     <bean id="reader" class="com.googlecode.scheme2ddl.UserObjectReader" scope="step">
-        <property name="processPublicDbLinks" value="true"/>
+        <property name="processPublicDbLinks" value="false"/>
         <property name="processDmbsJobs" value="true"/>
         <!-- The "processUserAndPermissions" workes only for sysdba users -->
         <property name="processUserAndPermissions" value="true"/>
@@ -229,7 +229,8 @@
             >0 - limit exporting table rows by this value
     -->
     <util:map id="includesDataTables">
-        <entry key="SCOTT.TAB2"><util:properties><prop key="maxRowsExport">3</prop></util:properties></entry>   <!-- The "maxRowsExport" setting limits number of rows  -->
+        <entry key="SCOTT.TAB2"><util:properties><prop key="maxRowsExport">3</prop><prop key="where">LENGTH(column1) != 4</prop></util:properties></entry>   <!-- The "maxRowsExport" setting limits number of rows  -->
+        <entry key="SCOTT.DEPT"><util:properties><prop key="where">lower(loc) like '%o%'</prop></util:properties></entry> <!-- used "WHERE" arguments for this tables -->
 
         <entry key="*"><util:properties><prop key="maxRowsExport">200</prop></util:properties></entry>
     </util:map>
