@@ -160,9 +160,10 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
             for (String dependedType : dependedTypes) {
                 String resultDDL = userObjectDao.findDependentDLLByTypeName(dependedType, userObject.getName(), userObject.getType());
 
-                if (dependenciesInSeparateFiles != null
-                        && dependenciesInSeparateFiles.get(userObject.getType()) != null
-                        && dependenciesInSeparateFiles.get(userObject.getType()).contains(dependedType))
+                if (dependenciesInSeparateFiles != null && (
+                        (dependenciesInSeparateFiles.get(userObject.getType()) != null && dependenciesInSeparateFiles.get(userObject.getType()).contains(dependedType))
+                        || (dependenciesInSeparateFiles.get("*") != null && dependenciesInSeparateFiles.get("*").contains(dependedType))
+                    ))
                 {
                     if (resultDDL != null && !resultDDL.equals("")) {
                         userObject.setDependentDDL(dependedType,  ddlFormatter.formatDDL(resultDDL),
