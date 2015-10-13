@@ -238,11 +238,16 @@ public class Main {
     private static void parseSettingsUserObjectProcessor(ConfigurableApplicationContext context) {
         Map<String, String> settingsUserObjectProcessor;
         Map<String, Boolean> tmp_settings = new HashMap<String, Boolean>(); // need for get Class of this object later
+        String sortingByColumnsRegexpList = null;
 
         try {
             settingsUserObjectProcessor = (Map<String, String>) context.getBean("settingsUserObjectProcessor");
             // convert Map<String, String> into Map<String, Boolean>
             for (String key : settingsUserObjectProcessor.keySet()) {
+                if (key.equals("sortingByColumnsRegexpList")) {
+                    sortingByColumnsRegexpList = settingsUserObjectProcessor.get(key);
+                    continue;
+                }
                 tmp_settings.put(key, Boolean.valueOf(settingsUserObjectProcessor.get(key)));
             }
         } catch (NoSuchBeanDefinitionException e) {
@@ -255,6 +260,7 @@ public class Main {
         UserObjectProcessor userobjectprocessor = (UserObjectProcessor) context.getBean("processor");
         //userobjectprocessor.afterSetSettingsUserObjectProcessor();
         userobjectprocessor.setSettingsUserObjectProcessor(tmp_settings);
+        userobjectprocessor.setSortingByColumnsRegexpList(sortingByColumnsRegexpList);
     }
 
     /**

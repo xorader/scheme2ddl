@@ -31,7 +31,9 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
     private Map<String, Properties>     includesDataTables;
     private boolean isUsedSchemaNamesInFilters = false;
     private boolean isExportDataTable = false;
+    private boolean isSortExportedDataTable = false;
     private boolean replaceSequenceValues = false;
+    private String sortingByColumnsRegexpList = null;
 
     public UserObject process(UserObject userObject) throws Exception {
 
@@ -46,7 +48,7 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
             TableExportProperty tableProperty = getTableExportProperties(userObject);
 
             if (tableProperty.maxRowsExport != -1) {
-                userObjectDao.exportDataTable(userObject, tableProperty.maxRowsExport, tableProperty.where, fileNameConstructor);
+                userObjectDao.exportDataTable(userObject, tableProperty.maxRowsExport, tableProperty.where, fileNameConstructor, isSortExportedDataTable, sortingByColumnsRegexpList);
             } else {
                 log.debug(String.format("Skipping processing of data table of: %s ", userObject));
             }
@@ -96,13 +98,14 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
      * http://docs.oracle.com/javase/6/docs/api/java/util/Map.html
      *
      * Return values in TableExportProperty.maxRowsExport:
-     *  0  - need to export unlimited rows of the object's table
+     *  0  - need to export unlimited rows of the object's table (default value)
      *  -1 - do not export the whole table data
      *  >0 - limit exporting table rows by this value
      */
     private TableExportProperty getTableExportProperties(UserObject userObject) {
         String fullTableName;
-        TableExportProperty result = new TableExportProperty(0, null);
+        final int emptyMaxRowsExport = -100;
+        TableExportProperty result = new TableExportProperty(emptyMaxRowsExport, null);
 
         if (isUsedSchemaNamesInFilters && userObject.getSchema() != null) {
             fullTableName = userObject.getSchema() + "." + userObject.getName();
@@ -115,16 +118,22 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
                 if (matchesByPattern(fullTableName, tableNamePattern)) {
                     Properties props = includesDataTables.get(tableNamePattern);
                     String maxRowsExport = props.getProperty("maxRowsExport");
-                    result.where = props.getProperty("where");
+                    String where = props.getProperty("where");
 
-                    if (maxRowsExport == null) {
-                        return result;
-                    }
-                    result.maxRowsExport = Integer.parseInt(maxRowsExport);
-                    return result;
+                    if (maxRowsExport != null && result.maxRowsExport == emptyMaxRowsExport)
+                        result.maxRowsExport = Integer.parseInt(maxRowsExport);
+                    if (where != null && result.where == null)
+                        result.where = where;
+
+                    if (result.maxRowsExport != emptyMaxRowsExport && result.where != null)
+                       return result;
                 }
             }
+            if (result.maxRowsExport != emptyMaxRowsExport)
+                return result;
         }
+
+        result.maxRowsExport = 0;
 
         if (excludesDataTables == null || excludesDataTables.size() == 0)
             return result;
@@ -225,11 +234,20 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
         {
             this.isExportDataTable = true;
         }
+        if (settingsUserObjectProcessor.get("isSortExportedDataTable") != null
+                && settingsUserObjectProcessor.get("isSortExportedDataTable"))
+        {
+            this.isSortExportedDataTable = true;
+        }
         if (settingsUserObjectProcessor.get("replaceSequenceValues") != null
                 && settingsUserObjectProcessor.get("replaceSequenceValues"))
         {
             this.replaceSequenceValues = true;
         }
+    }
+
+    public void setSortingByColumnsRegexpList(String list) {
+        this.sortingByColumnsRegexpList = list.toLowerCase();
     }
 
     public void setReplaceSequenceValues(boolean replaceSequenceValues) {

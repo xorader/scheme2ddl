@@ -42,12 +42,14 @@
 
     <!-- settings for processing SQL objects -->
     <util:map id="settingsUserObjectProcessor">
-        <!-- Enables exporting of data tables (and LOB data too in separate files) -->
-        <entry key="isExportDataTable" value="true"/>
         <!-- In all filters (includesDataTables, excludesDataTables, excludes) will used the full object name
              like "SCHEMA_NAME.OBJECT_NAME", if processSchemas is not empty  -->
         <entry key="isUsedSchemaNamesInFilters" value="true"/>
         <entry key="replaceSequenceValues" value="false"/>
+        <!-- Enables exporting of data tables (and LOB data too in separate files) -->
+        <entry key="isExportDataTable" value="true"/>
+        <entry key="isSortExportedDataTable" value="true"/>
+        <entry key="sortingByColumnsRegexpList" value="^(id|id_.+|.+_id|uniq_.+)$"/>
     </util:map>
 
     <!-- http://download.oracle.com/docs/cd/B19306_01/appdev.102/b14258/d_metada.htm#BGBJBFGE -->

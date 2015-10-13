@@ -404,7 +404,7 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         }
     }
 
-    public void exportDataTable(UserObject userObject, final int maxRowsExport, final String add_where, final FileNameConstructor fileNameConstructor) {
+    public void exportDataTable(UserObject userObject, final int maxRowsExport, final String add_where, final FileNameConstructor fileNameConstructor, final boolean isSortExportedDataTable, final String sortingByColumnsRegexpList) {
         final String tableName = userObject.getName();
         final String schema_name = schemaName;
         final String preparedTemplate = fileNameConstructor.getPreparedTemplate();
@@ -413,13 +413,111 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         String result_execute = (String) getJdbcTemplate().execute(new ConnectionCallback() {
             public String doInConnection(Connection connection) throws SQLException, DataAccessException {
                 try {
-                    generateInsertStatements(connection, schema_name, tableName, maxRowsExport, add_where, preparedTemplate, preparedTemplateDataLob, outputPath);
+                    generateInsertStatements(connection, schema_name, tableName, maxRowsExport, add_where, preparedTemplate, preparedTemplateDataLob, outputPath, isSortExportedDataTable, sortingByColumnsRegexpList);
                 } catch (IOException e) {
                     logger.error("Error with write to data file of '" + tableName + "' table: " + e.getMessage(), e);
                 }
                 return null;
             }
         });
+    }
+
+    private static String getTablePrimaryKeyColumn(final DatabaseMetaData meta, final String schema_name, final String tableName)
+        throws SQLException
+    {
+        ResultSet rs = meta.getPrimaryKeys(null, schema_name, tableName);
+        if (rs.next()) {
+            //log.info(String.format("== getTablePrimaryKeyColumn %s.%s: %s", schema_name, tableName, rs.getString("COLUMN_NAME")));
+            return rs.getString("COLUMN_NAME");
+        }
+        return null;
+    }
+
+    private static boolean isNotNullColumn(final DatabaseMetaData meta, final String schema_name, final String tableName, final String columnName)
+        throws SQLException
+    {
+        ResultSet rs = meta.getColumns(null, schema_name, tableName, columnName);
+        while(rs.next()) {
+            if (rs.getInt("NULLABLE") == DatabaseMetaData.columnNoNulls) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String getTableUniqueIdxColumn(final DatabaseMetaData meta, final String schema_name, final String tableName, final boolean onlyNotNull, final String sortingByColumnsRegexpList)
+        throws SQLException
+    {
+        ResultSet rs = meta.getIndexInfo(null, schema_name, tableName, true, true);
+        String last_result = null;
+        while(rs.next()) {
+            String indexName = rs.getString("INDEX_NAME");
+            String columnName = rs.getString("COLUMN_NAME");
+            boolean isNonUnique = rs.getBoolean("NON_UNIQUE");
+            if (indexName == null || columnName == null
+              || (onlyNotNull && !isNotNullColumn(meta, schema_name, tableName, columnName))) {
+                continue;
+            }
+            if (sortingByColumnsRegexpList != null && !sortingByColumnsRegexpList.equals("") && columnName.toLowerCase().matches(sortingByColumnsRegexpList)) {
+                //log.info(String.format("== getTableUniqueIdxColumn %s.%s: %s (%s | %s | matched by: %s)", schema_name, tableName, columnName, indexName, isNonUnique ? "true" : "false", sortingByColumnsRegexpList));
+                return columnName;
+            }
+            last_result = columnName;
+        }
+
+        //if (last_result != null)
+        //    log.info(String.format("== getTableUniqueIdxColumn %s.%s: %s", schema_name, tableName, last_result));
+        return last_result;
+    }
+
+    private static String getTableAutoIdentifyColumn(final DatabaseMetaData meta, final String schema_name, final String tableName, final String sortingByColumnsRegexpList)
+        throws SQLException
+    {
+        ResultSet rs = meta.getBestRowIdentifier(null, schema_name, tableName, 2, true);
+        ResultSetMetaData rs_metadata = rs.getMetaData();
+        String last_result = null;
+        // Display the result set data.
+        int cols = rs_metadata.getColumnCount();
+        while(rs.next()) {
+            last_result = rs.getString("COLUMN_NAME");
+            if (sortingByColumnsRegexpList != null && !sortingByColumnsRegexpList.equals("") && last_result.toLowerCase().matches(sortingByColumnsRegexpList)) {
+                //log.info(String.format("== getTableAutoIdentifyColumn %s.%s: %s (match by %s)", schema_name, tableName, last_result, sortingByColumnsRegexpList));
+                return last_result;
+            }
+        }
+        //rs.close();
+        //if (last_result != null)
+        //    log.info(String.format("== getTableAutoIdentifyColumn %s.%s: %s", schema_name, tableName, last_result));
+        return last_result;
+    }
+
+    private static String getTableNameIdentifyColumn(final DatabaseMetaData meta, final String schema_name, final String tableName, final String sortingByColumnsRegexpList)
+        throws SQLException
+    {
+        if (sortingByColumnsRegexpList == null || sortingByColumnsRegexpList.equals(""))
+            return null;
+
+        ResultSet rs = meta.getColumns(null, schema_name, tableName, null);
+        while(rs.next()) {
+            final String columnName = rs.getString("COLUMN_NAME");
+            if (columnName.toLowerCase().matches(sortingByColumnsRegexpList)) {
+                //log.info(String.format("== getTableNameIdentifyColumn %s.%s: %s", schema_name, tableName, columnName));
+                return columnName;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isTableContainLobColumn(final DatabaseMetaData meta, final String schema_name, final String tableName)
+        throws SQLException
+    {
+        ResultSet rs = meta.getColumns(null, schema_name, tableName, null);
+        while(rs.next()) {
+            int columnType = rs.getInt("DATA_TYPE");
+            if (columnType == java.sql.Types.CLOB || columnType == java.sql.Types.BLOB)
+                return true;
+        }
+        return false;
     }
 
     /*
@@ -434,8 +532,9 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
      *        - http://stackoverflow.com/questions/8348427/how-to-write-update-oracle-blob-in-a-reliable-way
      *        - http://stackoverflow.com/questions/862355/overcomplicated-oracle-jdbc-blob-handling
      */
-    private static void generateInsertStatements(Connection conn, String schema_name, String tableName, final int maxRowsExport, final String add_where, final String preparedTemplate, final String preparedTemplateDataLob, final String outputPath)
-            throws SQLException, DataAccessException, IOException
+    private static void generateInsertStatements(Connection conn, String schema_name, String tableName, final int maxRowsExport, final String add_where,
+            final String preparedTemplate, final String preparedTemplateDataLob, final String outputPath, final boolean isSortExportedDataTable, final String sortingByColumnsRegexpList)
+        throws SQLException, DataAccessException, IOException
     {
         final String fullTableName;
         final String absoluteFileName = FilenameUtils.separatorsToSystem(outputPath + "/"
@@ -449,15 +548,56 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
 
         final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
         boolean isPresentUnknownType = false;
-        String primaryKeyColumn = null;
+        String primaryKeyColumn = null;     // column name, using for creating LOB-files
         boolean isPrimaryKeyColumnSearched = false;
+
+        DatabaseMetaData conn_meta = conn.getMetaData();
+        /*
+         *  finding the Primary Key column in this table for CLOB/BLOB data exporting
+         */
+        if (isTableContainLobColumn(conn_meta, schema_name, tableName)) {
+            primaryKeyColumn = getTablePrimaryKeyColumn(conn_meta, schema_name, tableName);
+            if (primaryKeyColumn == null) {
+                primaryKeyColumn = getTableUniqueIdxColumn(conn_meta, schema_name, tableName, true, sortingByColumnsRegexpList);
+            }
+            if (primaryKeyColumn == null) {
+                /* primary key was not found. CLOB/BLOB columns can not be exported */
+                log.info(String.format("   ---> Can not save blob/clob column(s) of the '%s' table, because can't find Primary Key for this table.", fullTableName));
+            } else {
+                /* Create the 'primary_key' file with primary key column name for this table (for BLOB/CLOB columns identity). */
+                String primaryKeyFileName = FilenameUtils.separatorsToSystem(outputPath + "/"
+                        + map2FileNameStatic(schema_name, "DATA_TABLE", tableName, preparedTemplateDataLob, "_", "primary_key"));
+                File filePK = new File(primaryKeyFileName);
+                FileUtils.writeStringToFile(filePK, primaryKeyColumn);
+                log.info(String.format("Save column name with primary key of the '%s' table for LOB column(s) to file: %s",
+                            fullTableName.toLowerCase(), filePK.getAbsolutePath()));
+            }
+            isPrimaryKeyColumnSearched = true;
+        }
+
         int numRows = 0;
         String query_string = "SELECT * FROM " + fullTableName;
-
-        Statement stmt = conn.createStatement();
         if (add_where != null) {
             query_string += " WHERE " + add_where;
         }
+        if (isSortExportedDataTable) {
+            String bestRowIdentifier = null;    // column name, using for sorting
+            if (!isPrimaryKeyColumnSearched) {
+                bestRowIdentifier = getTablePrimaryKeyColumn(conn_meta, schema_name, tableName);
+            } else {
+                bestRowIdentifier = primaryKeyColumn;
+            }
+            if (bestRowIdentifier == null)
+                bestRowIdentifier = getTableUniqueIdxColumn(conn_meta, schema_name, tableName, false, sortingByColumnsRegexpList);
+            if (bestRowIdentifier == null)
+                bestRowIdentifier = getTableAutoIdentifyColumn(conn_meta, schema_name, tableName, sortingByColumnsRegexpList);
+            if (bestRowIdentifier == null)
+                bestRowIdentifier = getTableNameIdentifyColumn(conn_meta, schema_name, tableName, sortingByColumnsRegexpList);
+
+            if (bestRowIdentifier != null)
+                query_string += " ORDER BY " + bestRowIdentifier;
+        }
+        Statement stmt = conn.createStatement();
         ResultSet rs = stmt.executeQuery(query_string);
         ResultSetMetaData rsmd = rs.getMetaData();
         int numColumns = rsmd.getColumnCount();
@@ -466,20 +606,24 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
 
         String columnNames = "";
         for (int i = 0; i < numColumns; i++) {
+            final String columnName = rsmd.getColumnName(i + 1);
             columnTypes[i] = rsmd.getColumnType(i + 1);
             if (i != 0) {
                 columnNames += ",";
             }
-            columnNames += rsmd.getColumnName(i + 1);
-            columnNamesArray[i] = rsmd.getColumnName(i + 1);
+            columnNames += columnName;
+            columnNamesArray[i] = columnName;
         }
 
         File file = new File(absoluteFileName);
         FileUtils.touch(file);  // create new file with directories hierarchy
         log.info(String.format("Export data table '%s' to file %s", fullTableName.toLowerCase(), file.getAbsolutePath()));
 
+        String limitRowsComment = maxRowsExport > 0 ? String.format("  [limited by %d rows]", maxRowsExport) : "";
+
         PrintWriter p = new PrintWriter(new FileWriter(file));
-        p.println("REM INSERTING into " + fullTableName);
+        p.println("-- INSERTING into " + fullTableName + " (" + columnNames + ")");
+        p.println("-- taked by: " + query_string + limitRowsComment);
         p.println("set sqlt off;");
         p.println("set sqlblanklines on;");
         p.println("set define off;");
@@ -496,24 +640,24 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                 }
 
                 switch (columnTypes[i]) {
-                    case Types.BIGINT:
-                    case Types.BIT:
-                    case Types.BOOLEAN:
-                    case Types.DECIMAL:
-                    case Types.DOUBLE:
-                    case Types.FLOAT:
-                    case Types.INTEGER:
-                    case Types.SMALLINT:
-                    case Types.TINYINT:
+                    case java.sql.Types.BIGINT:
+                    case java.sql.Types.BIT:
+                    case java.sql.Types.BOOLEAN:
+                    case java.sql.Types.DECIMAL:
+                    case java.sql.Types.DOUBLE:
+                    case java.sql.Types.FLOAT:
+                    case java.sql.Types.INTEGER:
+                    case java.sql.Types.SMALLINT:
+                    case java.sql.Types.TINYINT:
                         String v = rs.getString(i + 1);
                         columnValues += v;
                         break;
 
-                    case Types.DATE:
+                    case java.sql.Types.DATE:
                         d = rs.getDate(i + 1);
-                    case Types.TIME:
+                    case java.sql.Types.TIME:
                         if (d == null) d = rs.getTime(i + 1);
-                    case Types.TIMESTAMP:
+                    case java.sql.Types.TIMESTAMP:
                         if (d == null) d = rs.getTimestamp(i + 1);
 
                         if (d == null) {
@@ -525,9 +669,9 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                                       + "', 'YYYY/MM/DD HH24:MI:SS')";
                         }
                         break;
-                    case Types.VARCHAR:
-                    case Types.CHAR:
-                    case Types.NUMERIC:
+                    case java.sql.Types.VARCHAR:
+                    case java.sql.Types.CHAR:
+                    case java.sql.Types.NUMERIC:
                         v = rs.getString(i + 1);
                         if (v != null) {
                             columnValues += "'" + v.replaceAll("'", "''") + "'";
@@ -536,43 +680,17 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                             columnValues += "null";
                         }
                         break;
-                    case Types.CLOB:
-                    case Types.BLOB:
+                    case java.sql.Types.CLOB:
+                    case java.sql.Types.BLOB:
                         /* LOB data will exported below to separate file */
                         columnValues += "null";
 
-                        /*
-                         *  finding the Primary Key in this table
-                         */
                         if (primaryKeyColumn == null) {
-                            if (!isPrimaryKeyColumnSearched) {
-                                DatabaseMetaData meta = conn.getMetaData();
-                                ResultSet rs_meta = meta.getPrimaryKeys(null, schema_name, tableName);
-                                if (rs_meta.next()) {
-                                    primaryKeyColumn = rs_meta.getString("COLUMN_NAME");
-                                }
-                                isPrimaryKeyColumnSearched = true;
-                                if (primaryKeyColumn == null) {
-                                    /* primary key was not found. CLOB/BLOB columns can not be exported */
-                                    log.info(String.format("   ---> Can not save the '%s' blob column of the '%s' table, because can't find Primary Key for this table!!!", columnNamesArray[i], fullTableName));
-                                    break;
-                                } else {
-                                    /* Create <column name>.primary_key file with primary key column name for this LOB. */
-                                    String primaryKeyFileName = FilenameUtils.separatorsToSystem(outputPath + "/"
-                                            + map2FileNameStatic(schema_name, "DATA_TABLE", tableName, preparedTemplateDataLob, columnNamesArray[i], "primary_key"));
-                                    File filePK = new File(primaryKeyFileName);
-                                    FileUtils.writeStringToFile(filePK, primaryKeyColumn);
-                                    log.info(String.format("Export data table LOB '%s' column primary key '%s' to file: %s",
-                                                fullTableName.toLowerCase(), columnNamesArray[i], filePK.getAbsolutePath()));
-
-                                }
-                            } else {
-                                /*
-                                 * The Primary Key has not been found (was be searched already).
-                                 * Skip exporting any LOB data for this table
-                                 */
-                                break;
-                            }
+                            /*
+                             * The Primary Key has not been found.
+                             * Skip exporting any LOB data for this table.
+                             */
+                            break;
                         }
 
                         /*
@@ -584,7 +702,7 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                         log.debug(String.format("Export data table LOB '%s' column '%s' with id '%s' to file: %s",
                                     fullTableName.toLowerCase(), columnNamesArray[i], rs.getString(primaryKeyColumn), outputBinaryFile.getAbsolutePath()));
 
-                        if (columnTypes[i] == Types.CLOB) {
+                        if (columnTypes[i] == java.sql.Types.CLOB) {
                             CLOB clob;
                             clob = ((OracleResultSet) rs).getCLOB(i + 1);
                             if (clob != null) {
