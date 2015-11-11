@@ -627,7 +627,6 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                 query_string += " ORDER BY " + bestRowIdentifier;
         }
         Statement stmt = conn.createStatement();
-        log.info(String.format("do query: %s", query_string));
         ResultSet rs = stmt.executeQuery(query_string);
         ResultSetMetaData rsmd = rs.getMetaData();
         int numColumns = rsmd.getColumnCount();
