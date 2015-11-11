@@ -445,21 +445,43 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         return false;
     }
 
+    private static boolean isSortableTypeColumn(final DatabaseMetaData meta, final String schema_name, final String tableName, final String columnName)
+        throws SQLException
+    {
+        ResultSet rs = meta.getColumns(null, schema_name, tableName, columnName);
+        while(rs.next()) {
+            int column_type = rs.getInt("DATA_TYPE");
+            //log.info(String.format("== isSortableTypeColumn %s.%s.%s: Type: '%s'. Data type: '%d'. SQL_DATA_TYPE: '%d'.", schema_name, tableName, columnName, rs.getString("TYPE_NAME"), column_type, rs.getInt("SQL_DATA_TYPE")));
+            /*
+             * It's a little hack, place. We can not order by not internal types, and types like BLOB, CLOB, ARRAY and OTHERs. This types has a number higher then 1000 (magic number).
+             * java.sql.Types can see here:
+             *  https://docs.oracle.com/javase/7/docs/api/constant-values.html#java.sql.Types.ARRAY
+             *  https://docs.oracle.com/javase/7/docs/api/java/sql/Types.html
+             */
+            if (column_type >= 1000) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static String getTableUniqueIdxColumn(final DatabaseMetaData meta, final String schema_name, final String tableName, final boolean onlyNotNull, final String sortingByColumnsRegexpList)
         throws SQLException
     {
         ResultSet rs = meta.getIndexInfo(null, schema_name, tableName, true, true);
         String last_result = null;
         while(rs.next()) {
-            String indexName = rs.getString("INDEX_NAME");
-            String columnName = rs.getString("COLUMN_NAME");
+            final String indexName = rs.getString("INDEX_NAME");
+            final String columnName = rs.getString("COLUMN_NAME");
             boolean isNonUnique = rs.getBoolean("NON_UNIQUE");
             if (indexName == null || columnName == null
-              || (onlyNotNull && !isNotNullColumn(meta, schema_name, tableName, columnName))) {
+              || (onlyNotNull && !isNotNullColumn(meta, schema_name, tableName, columnName))
+              || !isSortableTypeColumn(meta, schema_name, tableName, columnName)) {
                 continue;
             }
+
+            //log.info(String.format("== getTableUniqueIdxColumn %s.%s: %s (%s | %s | matched by: %s)", schema_name, tableName, columnName, indexName, isNonUnique ? "true" : "false", sortingByColumnsRegexpList));
             if (sortingByColumnsRegexpList != null && !sortingByColumnsRegexpList.equals("") && columnName.toLowerCase().matches(sortingByColumnsRegexpList)) {
-                //log.info(String.format("== getTableUniqueIdxColumn %s.%s: %s (%s | %s | matched by: %s)", schema_name, tableName, columnName, indexName, isNonUnique ? "true" : "false", sortingByColumnsRegexpList));
                 return columnName;
             }
             last_result = columnName;
@@ -479,11 +501,15 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         // Display the result set data.
         int cols = rs_metadata.getColumnCount();
         while(rs.next()) {
-            last_result = rs.getString("COLUMN_NAME");
-            if (sortingByColumnsRegexpList != null && !sortingByColumnsRegexpList.equals("") && last_result.toLowerCase().matches(sortingByColumnsRegexpList)) {
-                //log.info(String.format("== getTableAutoIdentifyColumn %s.%s: %s (match by %s)", schema_name, tableName, last_result, sortingByColumnsRegexpList));
-                return last_result;
+            final String columnName = rs.getString("COLUMN_NAME");
+            if (!isSortableTypeColumn(meta, schema_name, tableName, columnName)) {
+                continue;
             }
+            //log.info(String.format("== getTableAutoIdentifyColumn %s.%s.%s (match by %s). Type: '%s'. Data type: '%d'.", schema_name, tableName, columnName, sortingByColumnsRegexpList, rs.getString("TYPE_NAME"), rs.getInt("DATA_TYPE")));
+            if (sortingByColumnsRegexpList != null && !sortingByColumnsRegexpList.equals("") && columnName.toLowerCase().matches(sortingByColumnsRegexpList)) {
+                return columnName;
+            }
+            last_result = columnName;
         }
         //rs.close();
         //if (last_result != null)
@@ -500,6 +526,9 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         ResultSet rs = meta.getColumns(null, schema_name, tableName, null);
         while(rs.next()) {
             final String columnName = rs.getString("COLUMN_NAME");
+            if (!isSortableTypeColumn(meta, schema_name, tableName, columnName)) {
+                continue;
+            }
             if (columnName.toLowerCase().matches(sortingByColumnsRegexpList)) {
                 //log.info(String.format("== getTableNameIdentifyColumn %s.%s: %s", schema_name, tableName, columnName));
                 return columnName;
@@ -541,9 +570,9 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                 + map2FileNameStatic(schema_name, "DATA_TABLE", tableName, preparedTemplate, null, "sql"));
 
         if (schema_name == null) {
-            fullTableName = tableName;
+            fullTableName = "\"" + tableName + "\"";
         } else {
-            fullTableName = schema_name + "." + tableName;
+            fullTableName = "\"" + schema_name + "\".\"" + tableName + "\"";
         }
 
         final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
@@ -598,6 +627,7 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                 query_string += " ORDER BY " + bestRowIdentifier;
         }
         Statement stmt = conn.createStatement();
+        log.info(String.format("do query: %s", query_string));
         ResultSet rs = stmt.executeQuery(query_string);
         ResultSetMetaData rsmd = rs.getMetaData();
         int numColumns = rsmd.getColumnCount();
