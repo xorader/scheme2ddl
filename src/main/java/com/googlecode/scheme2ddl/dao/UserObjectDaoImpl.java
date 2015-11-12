@@ -653,9 +653,9 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         PrintWriter p = new PrintWriter(new FileWriter(file));
         p.println("-- INSERTING into " + fullTableName + " (" + columnNames + ")");
         p.println("-- taked by: " + query_string + limitRowsComment);
-        p.println("set sqlt off;");
-        p.println("set sqlblanklines on;");
-        p.println("set define off;");
+        p.println("set sqlt on");  // Sets the character used to end and execute SQL commands to ";"
+        p.println("set sqlblanklines on"); // Controls whether SQL*Plus puts blank lines within a SQL command or script. ON interprets blank lines and new lines as part of a SQL command or script. OFF, the default value, does not allow blank lines or new lines in a SQL command or script or script.
+        p.println("set define off");   // Sets off the character used to prefix variables to "&"
 
         Date d = null;
         while (rs.next()) {

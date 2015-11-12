@@ -13,8 +13,8 @@
         <!-- More info about tnsnames.ora look at http://docs.oracle.com/cd/B28359_01/network.111/b28317/tnsnames.htm -->
         <property name="URL" value="jdbc:oracle:thin:@SQL_TEST_HOST"/>
         <!-- You can choose a DBA user. For example: value="sys as sysdba" -->
-        <property name="user" value="scott"/>
-        <property name="password" value="tiger"/>
+        <property name="user" value="SCOTT"/>
+        <property name="password" value="TIGER"/>
         <property name="connectionCachingEnabled" value="true"/>
     </bean>
 
