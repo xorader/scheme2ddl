@@ -208,7 +208,7 @@
     -->
     <util:map id="includesDataTables">
         <entry key="SCOTT.TAB2"><util:properties><prop key="maxRowsExport">3</prop></util:properties></entry>
-        <entry key="SCOTT.DEPT"><util:properties><prop key="where">lower(loc) like '%o%'</prop></util:properties></entry>
+        <entry key="SCOTT.TAB3"><util:properties><prop key="where">lower(name) like '%у%'</prop></util:properties></entry> <!-- used "WHERE" arguments for this tables -->
         <entry key="*TAB1"><util:properties/></entry>
     </util:map>
 

@@ -349,7 +349,7 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                     ":done := callstr; " +
                     "END;";
 
-        return (String) getJdbcTemplate().execute(sql, new CallableStatementCallbackImpl());
+        return "BEGIN\n" + ((String) getJdbcTemplate().execute(sql, new CallableStatementCallbackImpl())) + "\nEND;\n/";
     }
 
     public boolean isConnectionAvailable() {
