@@ -199,7 +199,7 @@
 
     <!--
          The "includesDataTables" uses for overriding "excludesDataTables" and for limiting number of data tables rows.
-         The "includesDataTables" has more priority then "excludesDataTables".
+         The "maxRowsExport" in "includesDataTables" has more priority then "excludesDataTables".
          The "maxRowsExport" setting limits number of rows and can take three values:
             0  - (default value) need to export unlimited rows of the object's table
             -1 - do not export the whole table data

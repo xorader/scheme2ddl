@@ -1,7 +1,7 @@
 # scheme2ddl project
 #
 
-VERSION := 2.2.4-x3
+VERSION := 2.2.4-x4
 SRC_FILES := $(shell find src -type f -print)
 JAR_VERSION_IN_POM := $(shell grep '<version>' pom.xml | head -n1 | sed -e 's/.*<version>\(.*\)<\/version>.*/\1/')
 
