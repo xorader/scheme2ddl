@@ -17,6 +17,12 @@ import java.util.Date;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetEncoder;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.CharacterCodingException;
+
 // Needed since we will be using Oracle's BLOB, part of Oracle's JDBC extended
 // classes. Keep in mind that we could have included Java's JDBC interfaces
 // java.sql.Blob which Oracle does implement. The oracle.sql.BLOB class
@@ -160,20 +166,101 @@ public class InsertStatements {
         return false;
     }
 
-    public static final Pattern patternSemicolonEolForInserts = Pattern.compile("(;[ \t]*)\n");
-    public static final int maxSqlplusCmdLineLength = 2499;    // 2500 is the maximum of sqlplus CMD line length
+    private static final Pattern patternSemicolonEolForInserts = Pattern.compile(";[ \t]*$");
+    private static final int maxSqlplusCmdLineLength = 2498;    // 2500 is the maximum of sqlplus CMD line length (and 2 bytes sqlplus uses for something)
+    private int currentLineLength;
+    private static CharsetEncoder encoder = Charset.forName("UTF-8").newEncoder();
 
     /**
-     * Formating INSERT value strings
+     * Returns count of bytes (length) of symbol.
+     *  'a' returns - 1
+     *  'ю' returns - 2
+     *  '茶' returns - 3
+     * P.S. java - sux!
      */
-    private static String fixColumnValue(final String value)
+    private static int getBytesOfCharacter(final char symbol) {
+        try {
+            return encoder.encode(CharBuffer.wrap(new char[] { symbol })).limit();
+        } catch (CharacterCodingException e) {
+            return 1;
+        }
+    }
+
+    private String formatColumnValue(final String value)
     {
-        // replace in string: ' to ''
-        String result = value.replaceAll("'", "''");
+        int currentColumnLength;
+        try {
+            currentColumnLength = value.getBytes("UTF-8").length;
+        } catch (UnsupportedEncodingException e) {
+            currentColumnLength = value.length();
+        }
+        if (this.currentLineLength + currentColumnLength + 1 > maxSqlplusCmdLineLength) {
+            this.currentLineLength = currentColumnLength;
+            return "\n" + value;
+        }
+        this.currentLineLength += currentColumnLength;
+        return value;
+    }
 
+    /**
+     * Formating INSERT text value strings:
+     *  - Split lines (by "' ||\n'") if them is greater than maxSqlplusCmdLineLength
+     *  - Replace the ' to '' symbols
+     *  - if last character of line equals to ; then add to eof: '||'
+     *  - quote whole text around by '
+     *  - remove the \r character at end of lines
+     */
+    private String formatTextColumnValue(final String value)
+    {
+        // replace in string: ' to '' and quote text around by '
+        String result = "'" + value.replaceAll("'", "''") + "'";
 
-        // replace in string: ;\n to ;' || '\n
-        return patternSemicolonEolForInserts.matcher(result).replaceAll("$1' || '\n");
+        int position = 0;
+        int startLinePosition = 0;
+        String convertedLines = "";
+        for (char character: result.toCharArray()) {
+            position++;
+            if (character == '\n') {
+                final String currentLine;
+                if (position > 1 && result.charAt(position-2) == '\r') {
+                    currentLine = result.substring(startLinePosition, position-2);
+                } else {
+                    currentLine = result.substring(startLinePosition, position-1);
+                }
+                if (patternSemicolonEolForInserts.matcher(currentLine).find()) {
+                    // if last character of line equals to ';[ \t]*' then add to eof - '||'
+                    convertedLines += currentLine + "'||'\n";
+                } else {
+                    convertedLines += currentLine + "\n";
+                }
+
+                startLinePosition = position;
+                this.currentLineLength=0;
+                continue;
+            }
+            this.currentLineLength += getBytesOfCharacter(character);
+            if (this.currentLineLength >= (maxSqlplusCmdLineLength-4)) {
+                if (position == 1) {
+                    convertedLines = "\n'";
+                    this.currentLineLength=1;
+                } else {
+                    if (character == '\'' && result.charAt(position-2) != '\'') {
+                        convertedLines += result.substring(startLinePosition, position) + "\n";
+                        this.currentLineLength=0;
+                    } else {
+                        convertedLines += result.substring(startLinePosition, position) + "' ||\n'";
+                        this.currentLineLength=1;
+                    }
+                }
+                startLinePosition = position;
+            }
+        }
+
+        if (!convertedLines.equals("")) {
+            result = convertedLines + result.substring(startLinePosition, position);
+        }
+
+        return result;
     }
 
     /*
@@ -188,7 +275,7 @@ public class InsertStatements {
      *        - http://stackoverflow.com/questions/8348427/how-to-write-update-oracle-blob-in-a-reliable-way
      *        - http://stackoverflow.com/questions/862355/overcomplicated-oracle-jdbc-blob-handling
      */
-    public static void generateInsertStatements(Connection conn, String schema_name, String tableName, final int maxRowsExport, final String add_where,
+    public void generateInsertStatements(Connection conn, String schema_name, String tableName, final int maxRowsExport, final String add_where,
             final String preparedTemplate, final String preparedTemplateDataLob, final String outputPath, final boolean isSortExportedDataTable, final String sortingByColumnsRegexpList)
         throws SQLException, DataAccessException, IOException
     {
@@ -291,14 +378,16 @@ public class InsertStatements {
             }
 
             String resultString = String.format("INSERT INTO %s (%s) values (", fullTableName, columnNames);
-            int currentLineLength = resultString.length();
+            try {
+                this.currentLineLength = resultString.getBytes("UTF-8").length;
+            } catch (UnsupportedEncodingException e) {
+                this.currentLineLength = resultString.length();
+            }
 
             for (int i = 0; i < numColumns; i++) {
-                String currentColumnValue;
-
                 if (i != 0) {
                     resultString += ",";
-                    currentLineLength++;
+                    this.currentLineLength++;
                 }
 
                 switch (columnTypes[i]) {
@@ -311,7 +400,7 @@ public class InsertStatements {
                     case java.sql.Types.INTEGER:
                     case java.sql.Types.SMALLINT:
                     case java.sql.Types.TINYINT:
-                        currentColumnValue = rs.getString(i + 1);
+                        resultString += formatColumnValue(rs.getString(i + 1));
                         break;
 
                     case java.sql.Types.DATE:
@@ -322,29 +411,29 @@ public class InsertStatements {
                         if (d == null) d = rs.getTimestamp(i + 1);
 
                         if (d == null) {
-                            currentColumnValue = "null";
+                            resultString += formatColumnValue("null");
                         }
                         else {
-                            currentColumnValue = "TO_DATE('"
+                            resultString += formatColumnValue("TO_DATE('"
                                       + dateFormat.format(d)
-                                      + "', 'YYYY/MM/DD HH24:MI:SS')";
+                                      + "', 'YYYY/MM/DD HH24:MI:SS')");
                         }
                         break;
                     case java.sql.Types.VARCHAR:
                     case java.sql.Types.CHAR:
                     case java.sql.Types.NUMERIC:
-                        currentColumnValue = rs.getString(i + 1);
-                        if (currentColumnValue != null) {
-                            currentColumnValue = "'" + fixColumnValue(currentColumnValue) + "'";
+                        String textColumnValue = rs.getString(i + 1);
+                        if (textColumnValue != null) {
+                            resultString += formatTextColumnValue(textColumnValue);
                         }
                         else {
-                            currentColumnValue = "null";
+                            resultString += formatColumnValue("null");
                         }
                         break;
                     case java.sql.Types.CLOB:
                     case java.sql.Types.BLOB:
                         /* LOB data will exported below to separate file */
-                        currentColumnValue = "null";
+                        resultString += formatColumnValue("null");
 
                         if (primaryKeyColumn == null) {
                             /*
@@ -408,37 +497,29 @@ public class InsertStatements {
                         }
                         break;
                     default:
+                        String defaultColumnValue;
                         try {
-                            currentColumnValue = rs.getString(i + 1);
+                            defaultColumnValue = rs.getString(i + 1);
                         } catch (Exception e) {
                             if (!isPresentUnknownType) {
                                 log.info(String.format("   !!!> Error with take data from the '%s' table and '%s' column with unknown column type: %s", fullTableName, columnNamesArray[i], rsmd.getColumnTypeName(i + 1)));
                                 isPresentUnknownType = true;
                             }
-                            currentColumnValue = null;
+                            defaultColumnValue = null;
                         }
 
-                        if (currentColumnValue != null) {
-                            currentColumnValue = "'" + fixColumnValue(currentColumnValue) + "'";
+                        if (defaultColumnValue != null) {
+                            resultString += formatTextColumnValue(defaultColumnValue);
                         }
                         else {
-                            currentColumnValue = "null";
+                            resultString += formatColumnValue("null");
                         }
                         break;
                 }
-
-                int currentColumnLength = currentColumnValue.length();
-                if (currentLineLength + currentColumnLength + 1 > maxSqlplusCmdLineLength) {
-                    resultString += "\n";
-                    currentLineLength = 0;
-                }
-                resultString += currentColumnValue;
-                currentLineLength += currentColumnLength;
             }
 
-            if (currentLineLength + 2 > maxSqlplusCmdLineLength) {
+            if (this.currentLineLength + 2 > maxSqlplusCmdLineLength) {
                 resultString += "\n";
-                //currentLineLength = 0;
             }
             p.println(resultString + ");");
         }
