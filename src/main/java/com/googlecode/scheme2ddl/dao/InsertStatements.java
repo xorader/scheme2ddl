@@ -270,7 +270,7 @@ public class InsertStatements {
         }
 
         // fix data values with bug (sqlplus dont allow '\0' symbol)
-        result = result.replaceAll("\0", "#");
+        result = result.replaceAll("\0", "");
 
         return result;
     }
