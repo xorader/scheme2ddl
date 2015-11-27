@@ -269,6 +269,9 @@ public class InsertStatements {
             result = convertedLines + result.substring(startLinePosition, position);
         }
 
+        // fix data values with bug (sqlplus dont allow '\0' symbol)
+        result = result.replaceAll("\0", "#");
+
         return result;
     }
 
