@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.googlecode.scheme2ddl.TableExportProperty;
 import com.googlecode.scheme2ddl.dao.InsertStatements;
 import com.googlecode.scheme2ddl.FileNameConstructor;
 import static com.googlecode.scheme2ddl.TypeNamesUtil.map2TypeForConfig;
@@ -390,7 +391,7 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         }
     }
 
-    public void exportDataTable(UserObject userObject, final int maxRowsExport, final String add_where, final FileNameConstructor fileNameConstructor, final boolean isSortExportedDataTable, final String sortingByColumnsRegexpList) {
+    public void exportDataTable(UserObject userObject, final TableExportProperty tableProperty, final FileNameConstructor fileNameConstructor, final boolean isSortExportedDataTable, final String sortingByColumnsRegexpList, final String dataCharsetName) {
         final String tableName = userObject.getName();
         final String schema_name = schemaName;
         final String preparedTemplate = fileNameConstructor.getPreparedTemplate();
@@ -398,9 +399,9 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
 
         String result_execute = (String) getJdbcTemplate().execute(new ConnectionCallback() {
             public String doInConnection(Connection connection) throws SQLException, DataAccessException {
-                InsertStatements insertStatements = new InsertStatements();
+                InsertStatements insertStatements = new InsertStatements(dataCharsetName);
                 try {
-                    insertStatements.generateInsertStatements(connection, schema_name, tableName, maxRowsExport, add_where, preparedTemplate, preparedTemplateDataLob, outputPath, isSortExportedDataTable, sortingByColumnsRegexpList);
+                    insertStatements.generateInsertStatements(connection, schema_name, tableName, tableProperty, preparedTemplate, preparedTemplateDataLob, outputPath, isSortExportedDataTable, sortingByColumnsRegexpList);
                 } catch (IOException e) {
                     logger.error("Error with write to data file of '" + tableName + "' table: " + e.getMessage(), e);
                 }

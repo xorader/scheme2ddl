@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Properties;
 
 /**
@@ -106,6 +107,7 @@ public class Main {
         parseSettingsUserObjectProcessor(context);
         parseIncludesDataTables(context);
         parseExcludesDataTables(context);
+        parseTypesQuotesFormating(context);
 
         FileNameConstructor fileNameConstructor = retrieveFileNameConstructor(context);   //will create new one if not exist
         if (isLaunchedByDBA) {
@@ -239,6 +241,7 @@ public class Main {
         Map<String, String> settingsUserObjectProcessor;
         Map<String, Boolean> tmp_settings = new HashMap<String, Boolean>(); // need for get Class of this object later
         String sortingByColumnsRegexpList = null;
+        String dataCharsetName = null;
 
         try {
             settingsUserObjectProcessor = (Map<String, String>) context.getBean("settingsUserObjectProcessor");
@@ -246,6 +249,9 @@ public class Main {
             for (String key : settingsUserObjectProcessor.keySet()) {
                 if (key.equals("sortingByColumnsRegexpList")) {
                     sortingByColumnsRegexpList = settingsUserObjectProcessor.get(key);
+                    continue;
+                } else if (key.equals("dataCharsetName")) {
+                    dataCharsetName = settingsUserObjectProcessor.get(key);
                     continue;
                 }
                 tmp_settings.put(key, Boolean.valueOf(settingsUserObjectProcessor.get(key)));
@@ -261,6 +267,7 @@ public class Main {
         //userobjectprocessor.afterSetSettingsUserObjectProcessor();
         userobjectprocessor.setSettingsUserObjectProcessor(tmp_settings);
         userobjectprocessor.setSortingByColumnsRegexpList(sortingByColumnsRegexpList);
+        userobjectprocessor.setDataCharsetName(dataCharsetName);
     }
 
     /**
@@ -303,6 +310,27 @@ public class Main {
 
         UserObjectProcessor userobjectprocessor = (UserObjectProcessor) context.getBean("processor");
         userobjectprocessor.setExcludesDataTables(excludesDataTables);
+    }
+
+    /**
+     * @param context
+     * Create and register new bean "typesQuotesFormating", if this not exists.
+     */
+    private static void parseTypesQuotesFormating(ConfigurableApplicationContext context) {
+        Set<String> typesQuotesFormating;
+        ArrayList<String> tmp_excludes = new ArrayList<String>();  // need for get Class of this object later
+
+        try {
+            typesQuotesFormating = new HashSet((ArrayList<String>) context.getBean("typesQuotesFormating"));
+        } catch (NoSuchBeanDefinitionException e) {
+            // Require for compatability with old config without "typesQuotesFormating" bean
+            DefaultListableBeanFactory beanfactory = (DefaultListableBeanFactory) context.getBeanFactory();
+            beanfactory.registerBeanDefinition("typesQuotesFormating", BeanDefinitionBuilder.rootBeanDefinition(tmp_excludes.getClass()).getBeanDefinition());
+            typesQuotesFormating = new HashSet((ArrayList<String>) context.getBean("typesQuotesFormating"));
+        }
+
+        UserObjectProcessor userobjectprocessor = (UserObjectProcessor) context.getBean("processor");
+        userobjectprocessor.setTypesQuotesFormating(typesQuotesFormating);
     }
 
     private static String extractUserfromDbUrl(String dbUrl) {

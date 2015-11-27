@@ -6,6 +6,7 @@ import org.springframework.dao.DataAccessException;
 
 import java.sql.*;
 
+import com.googlecode.scheme2ddl.TableExportProperty;
 import com.googlecode.scheme2ddl.FileNameConstructor;
 import static com.googlecode.scheme2ddl.FileNameConstructor.map2FileNameStatic;
 
@@ -14,8 +15,6 @@ import org.apache.commons.io.FilenameUtils;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
@@ -38,6 +37,24 @@ import oracle.jdbc.*;
  */
 public class InsertStatements {
     private static final Log log = LogFactory.getLog(InsertStatements.class);
+
+    private static final int maxSqlplusCmdLineLength = 2497;    // 2500 is the maximum of sqlplus CMD line length (and 3 bytes sqlplus uses for eols and something)
+    private int currentLineLength;
+    private CharsetEncoder encoder;
+    private static String charsetNameDefault = "UTF-8";
+    static String newline = System.getProperty("line.separator");
+
+    InsertStatements() {
+        encoder = Charset.forName(charsetNameDefault).newEncoder();
+    }
+
+    InsertStatements(String charsetName) {
+        if (charsetName != null && !charsetName.equals("")) {
+            encoder = Charset.forName(charsetName).newEncoder();
+        } else {
+            encoder = Charset.forName(charsetNameDefault).newEncoder();
+        }
+    }
 
     private static String getTablePrimaryKeyColumn(final DatabaseMetaData meta, final String schema_name, final String tableName)
         throws SQLException
@@ -166,11 +183,6 @@ public class InsertStatements {
         return false;
     }
 
-    private static final Pattern patternSemicolonEolForInserts = Pattern.compile(";[ \t]*$");
-    private static final int maxSqlplusCmdLineLength = 2498;    // 2500 is the maximum of sqlplus CMD line length (and 2 bytes sqlplus uses for something)
-    private int currentLineLength;
-    private static CharsetEncoder encoder = Charset.forName("UTF-8").newEncoder();
-
     /**
      * Returns count of bytes (length) of symbol.
      *  'a' returns - 1
@@ -178,7 +190,7 @@ public class InsertStatements {
      *  '茶' returns - 3
      * P.S. java - sux!
      */
-    private static int getBytesOfCharacter(final char symbol) {
+    private int getBytesOfCharacter(final char symbol) {
         try {
             return encoder.encode(CharBuffer.wrap(new char[] { symbol })).limit();
         } catch (CharacterCodingException e) {
@@ -196,7 +208,7 @@ public class InsertStatements {
         }
         if (this.currentLineLength + currentColumnLength + 1 > maxSqlplusCmdLineLength) {
             this.currentLineLength = currentColumnLength;
-            return "\n" + value;
+            return newline + value;
         }
         this.currentLineLength += currentColumnLength;
         return value;
@@ -204,11 +216,9 @@ public class InsertStatements {
 
     /**
      * Formating INSERT text value strings:
-     *  - Split lines (by "' ||\n'") if them is greater than maxSqlplusCmdLineLength
+     *  - Split lines (by "'" + newline + "||'") if them is greater than maxSqlplusCmdLineLength
      *  - Replace the ' to '' symbols
-     *  - if last character of line equals to ; then add to eof: '||'
-     *  - quote whole text around by '
-     *  - remove the \r character at end of lines
+     *  - quote whole text and every lines around by '
      */
     private String formatTextColumnValue(final String value)
     {
@@ -222,34 +232,33 @@ public class InsertStatements {
             position++;
             if (character == '\n') {
                 final String currentLine;
-                if (position > 1 && result.charAt(position-2) == '\r') {
+                final String eolChrs;
+                if (position > 1 && result.charAt(position-2) == '\r') {    // check Windows eol: \r\n
                     currentLine = result.substring(startLinePosition, position-2);
+                    eolChrs = "'" + newline + "||CHR(13)||CHR(10)||'";
+                    this.currentLineLength=21;
                 } else {
                     currentLine = result.substring(startLinePosition, position-1);
-                }
-                if (patternSemicolonEolForInserts.matcher(currentLine).find()) {
-                    // if last character of line equals to ';[ \t]*' then add to eof - '||'
-                    convertedLines += currentLine + "'||'\n";
-                } else {
-                    convertedLines += currentLine + "\n";
+                    eolChrs = "'" + newline + "||CHR(10)||'";
+                    this.currentLineLength=12;
                 }
 
+                convertedLines += currentLine + eolChrs;
                 startLinePosition = position;
-                this.currentLineLength=0;
                 continue;
             }
             this.currentLineLength += getBytesOfCharacter(character);
-            if (this.currentLineLength >= (maxSqlplusCmdLineLength-4)) {
+            if (this.currentLineLength >= (maxSqlplusCmdLineLength-1)) {
                 if (position == 1) {
-                    convertedLines = "\n'";
+                    convertedLines = newline + "'";
                     this.currentLineLength=1;
                 } else {
                     if (character == '\'' && result.charAt(position-2) != '\'') {
-                        convertedLines += result.substring(startLinePosition, position) + "\n";
+                        convertedLines += result.substring(startLinePosition, position) + newline;
                         this.currentLineLength=0;
                     } else {
-                        convertedLines += result.substring(startLinePosition, position) + "' ||\n'";
-                        this.currentLineLength=1;
+                        convertedLines += result.substring(startLinePosition, position) + "'" + newline + "||'";
+                        this.currentLineLength=3;
                     }
                 }
                 startLinePosition = position;
@@ -275,8 +284,9 @@ public class InsertStatements {
      *        - http://stackoverflow.com/questions/8348427/how-to-write-update-oracle-blob-in-a-reliable-way
      *        - http://stackoverflow.com/questions/862355/overcomplicated-oracle-jdbc-blob-handling
      */
-    public void generateInsertStatements(Connection conn, String schema_name, String tableName, final int maxRowsExport, final String add_where,
-            final String preparedTemplate, final String preparedTemplateDataLob, final String outputPath, final boolean isSortExportedDataTable, final String sortingByColumnsRegexpList)
+    public void generateInsertStatements(Connection conn, String schema_name, String tableName, final TableExportProperty tableProperty,
+            final String preparedTemplate, final String preparedTemplateDataLob, final String outputPath,
+            final boolean isSortExportedDataTable, final String sortingByColumnsRegexpList)
         throws SQLException, DataAccessException, IOException
     {
         final String fullTableName;
@@ -320,15 +330,17 @@ public class InsertStatements {
 
         int numRows = 0;
         String query_string = "SELECT * FROM " + fullTableName;
-        if (add_where != null) {
-            query_string += " WHERE " + add_where;
+        if (tableProperty.where != null) {
+            query_string += " WHERE " + tableProperty.where;
         }
         if (isSortExportedDataTable) {
-            String bestRowIdentifier = null;    // column name, using for sorting
-            if (!isPrimaryKeyColumnSearched) {
-                bestRowIdentifier = getTablePrimaryKeyColumn(conn_meta, schema_name, tableName);
-            } else {
-                bestRowIdentifier = primaryKeyColumn;
+            String bestRowIdentifier = tableProperty.orderBy;    // column name, using for sorting
+            if (bestRowIdentifier == null) {
+                if (!isPrimaryKeyColumnSearched) {
+                    bestRowIdentifier = getTablePrimaryKeyColumn(conn_meta, schema_name, tableName);
+                } else {
+                    bestRowIdentifier = primaryKeyColumn;
+                }
             }
             if (bestRowIdentifier == null)
                 bestRowIdentifier = getTableUniqueIdxColumn(conn_meta, schema_name, tableName, false, sortingByColumnsRegexpList);
@@ -362,7 +374,7 @@ public class InsertStatements {
         FileUtils.touch(file);  // create new file with directories hierarchy
         log.info(String.format("Export data table %s to file %s", fullTableName.toLowerCase(), file.getAbsolutePath()));
 
-        String limitRowsComment = maxRowsExport > 0 ? String.format("  [limited by %d rows]", maxRowsExport) : "";
+        String limitRowsComment = tableProperty.maxRowsExport != TableExportProperty.unlimitedExportData ? String.format("  [limited by %d rows]", tableProperty.maxRowsExport) : "";
 
         PrintWriter p = new PrintWriter(new FileWriter(file));
         p.println("-- INSERTING into " + fullTableName + " (" + columnNames + ")");
@@ -371,9 +383,8 @@ public class InsertStatements {
         p.println("set sqlblanklines on"); // Controls whether SQL*Plus puts blank lines within a SQL command or script. ON interprets blank lines and new lines as part of a SQL command or script. OFF, the default value, does not allow blank lines or new lines in a SQL command or script or script.
         p.println("set define off");   // Sets off the character used to prefix variables to "&"
 
-        Date d = null;
         while (rs.next()) {
-            if (maxRowsExport > 0 && ++numRows > maxRowsExport) {
+            if (tableProperty.maxRowsExport != TableExportProperty.unlimitedExportData && ++numRows > tableProperty.maxRowsExport) {
                 break;
             }
 
@@ -385,6 +396,8 @@ public class InsertStatements {
             }
 
             for (int i = 0; i < numColumns; i++) {
+                Date d = null;
+
                 if (i != 0) {
                     resultString += ",";
                     this.currentLineLength++;
@@ -519,7 +532,7 @@ public class InsertStatements {
             }
 
             if (this.currentLineLength + 2 > maxSqlplusCmdLineLength) {
-                resultString += "\n";
+                resultString += newline;
             }
             p.println(resultString + ");");
         }

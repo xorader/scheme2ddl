@@ -1,6 +1,7 @@
 package com.googlecode.scheme2ddl;
 
 import com.googlecode.scheme2ddl.dao.UserObjectDao;
+import com.googlecode.scheme2ddl.TableExportProperty;
 import com.googlecode.scheme2ddl.domain.UserObject;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -29,30 +30,39 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
     private Map<String, Set<String>>    dependenciesInSeparateFiles;
     private ArrayList<String>           excludesDataTables;
     private Map<String, Properties>     includesDataTables;
+    private Set<String>                 typesQuotesFormating;
     private boolean isUsedSchemaNamesInFilters = false;
     private boolean isExportDataTable = false;
     private boolean isSortExportedDataTable = false;
     private boolean replaceSequenceValues = false;
     private String sortingByColumnsRegexpList = null;
+    private String dataCharsetName = null;
 
     public UserObject process(UserObject userObject) throws Exception {
+        String ddl;
 
         if (needToExclude(userObject)) {
             log.debug(String.format("Skipping processing of user object %s ", userObject));
             return null;
         }
-        userObject.setDdl(map2Ddl(userObject));
+        ddl = map2Ddl(userObject);
         userObject.setFileName(fileNameConstructor.map2FileName(userObject));
 
         if (isExportDataTable && userObject.getType().equals("TABLE")) {
             TableExportProperty tableProperty = getTableExportProperties(userObject);
 
-            if (tableProperty.maxRowsExport != -1) {
-                userObjectDao.exportDataTable(userObject, tableProperty.maxRowsExport, tableProperty.where, fileNameConstructor, isSortExportedDataTable, sortingByColumnsRegexpList);
+            if (tableProperty.maxRowsExport != TableExportProperty.doesNotExportData) {
+                userObjectDao.exportDataTable(userObject, tableProperty, fileNameConstructor, isSortExportedDataTable, sortingByColumnsRegexpList, dataCharsetName);
             } else {
                 log.debug(String.format("Skipping processing of data table of: %s ", userObject));
             }
         }
+
+        if (typesQuotesFormating != null && typesQuotesFormating.contains(userObject.getType())) {
+            ddl = ddlFormatter.quoteVarcharDDLEols(ddl);
+        }
+
+        userObject.setDdl(ddl);
         return userObject;
     }
 
@@ -84,16 +94,6 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
         return false;
     }
 
-    class TableExportProperty {
-        public int maxRowsExport;
-        public String where;
-
-        public TableExportProperty(int maxRowsExport, String where) {
-            this.maxRowsExport = maxRowsExport;
-            this.where = where;
-        }
-    }
-
     /* http://docs.oracle.com/javase/1.5.0/docs/api/java/util/Properties.html
      * http://docs.oracle.com/javase/6/docs/api/java/util/Map.html
      *
@@ -104,8 +104,7 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
      */
     private TableExportProperty getTableExportProperties(UserObject userObject) {
         String fullTableName;
-        final int emptyMaxRowsExport = -100;
-        TableExportProperty result = new TableExportProperty(emptyMaxRowsExport, null);
+        TableExportProperty result = new TableExportProperty(TableExportProperty.emptyMaxRowsExport, null, null);
 
         if (isUsedSchemaNamesInFilters && userObject.getSchema() != null) {
             fullTableName = userObject.getSchema() + "." + userObject.getName();
@@ -119,28 +118,31 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
                     Properties props = includesDataTables.get(tableNamePattern);
                     String maxRowsExport = props.getProperty("maxRowsExport");
                     String where = props.getProperty("where");
+                    String orderBy = props.getProperty("orderBy");
 
-                    if (maxRowsExport != null && result.maxRowsExport == emptyMaxRowsExport)
+                    if (maxRowsExport != null && result.maxRowsExport == TableExportProperty.emptyMaxRowsExport)
                         result.maxRowsExport = Integer.parseInt(maxRowsExport);
                     if (where != null && result.where == null)
                         result.where = where;
+                    if (orderBy != null && result.orderBy == null)
+                        result.orderBy = orderBy;
 
-                    if (result.maxRowsExport != emptyMaxRowsExport && result.where != null)
+                    if (result.maxRowsExport != TableExportProperty.emptyMaxRowsExport && result.where != null && result.orderBy != null)
                        return result;
                 }
             }
-            if (result.maxRowsExport != emptyMaxRowsExport)
+            if (result.maxRowsExport != TableExportProperty.emptyMaxRowsExport)
                 return result;
         }
 
-        result.maxRowsExport = 0;
+        result.maxRowsExport = TableExportProperty.unlimitedExportData;
 
         if (excludesDataTables == null || excludesDataTables.size() == 0)
             return result;
 
         for (String tableNamePattern : excludesDataTables) {
             if (matchesByPattern(fullTableName, tableNamePattern))
-                result.maxRowsExport = -1;
+                result.maxRowsExport = TableExportProperty.doesNotExportData;
                 return result;
         }
         return result;
@@ -197,6 +199,10 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
         this.excludesDataTables = excludesDataTables;
     }
 
+    public void setTypesQuotesFormating(Set typesQuotesFormating) {
+        this.typesQuotesFormating = typesQuotesFormating;
+    }
+
     public void setIncludesDataTables(Map includesDataTables) {
         this.includesDataTables = includesDataTables;
     }
@@ -248,6 +254,10 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
 
     public void setSortingByColumnsRegexpList(String list) {
         this.sortingByColumnsRegexpList = list.toLowerCase();
+    }
+
+    public void setDataCharsetName(String dataCharsetName) {
+        this.dataCharsetName = dataCharsetName;
     }
 
     public void setReplaceSequenceValues(boolean replaceSequenceValues) {

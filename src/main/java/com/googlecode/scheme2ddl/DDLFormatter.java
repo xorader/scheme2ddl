@@ -66,4 +66,48 @@ public class DDLFormatter {
         }
         return output;
     }
+
+    /**
+     * Parse multistring varchar values and quote every new lines around by '
+     * TODO: Split lines if them is greater than maxSqlplusCmdLineLength (1497).
+     *      Look example in dao/InsertStatements.java:formatTextColumnValue method
+     */
+    public String quoteVarcharDDLEols(String ddl) {
+        String result = "";
+        int position = 0;
+        int startLinePosition = 0;
+        int quoteAtLineCounter = 0;
+
+        for (char character: ddl.toCharArray()) {
+            position++;
+            if (character == '\n') {
+                if (quoteAtLineCounter % 2 > 0) {
+                    final String eolChrs;
+                    final String currentLine;
+                    if (position > 1 && ddl.charAt(position-2) == '\r') {
+                        eolChrs = "'" + newline + "||CHR(13)||CHR(10)||'";
+                        currentLine = ddl.substring(startLinePosition, position-2);
+                    } else {
+                        eolChrs = "'" + newline + "||CHR(10)||'";
+                        currentLine = ddl.substring(startLinePosition, position-1);
+                    }
+                    result += currentLine + eolChrs;
+                    startLinePosition = position;
+                    quoteAtLineCounter = 1;
+                } else {
+                    // Uncomment then need split lines if them is greater than maxSqlplusCmdLineLength
+                    //... result += ddl.substring(startLinePosition, position);
+                    //... startLinePosition = position;
+                    quoteAtLineCounter = 0;
+                }
+            } else if (character == '\'') {
+                quoteAtLineCounter++;
+            }
+        }
+
+        if (result.equals("")) {
+            return ddl;
+        }
+        return result + ddl.substring(startLinePosition, position);
+    }
 }

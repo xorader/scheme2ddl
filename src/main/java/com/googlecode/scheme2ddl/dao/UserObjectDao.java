@@ -1,5 +1,6 @@
 package com.googlecode.scheme2ddl.dao;
 
+import com.googlecode.scheme2ddl.TableExportProperty;
 import com.googlecode.scheme2ddl.domain.UserObject;
 import com.googlecode.scheme2ddl.FileNameConstructor;
 
@@ -30,7 +31,7 @@ public interface UserObjectDao {
 
     String generateUserDDL(String name);
 
-    void exportDataTable(UserObject userObject, int maxRowsExport, String add_where, FileNameConstructor fileNameConstructor, boolean isSortExportedDataTable, String sortingByColumnsRegexpList);
+    void exportDataTable(UserObject userObject, TableExportProperty tableProperty, FileNameConstructor fileNameConstructor, boolean isSortExportedDataTable, String sortingByColumnsRegexpList, String dataCharsetName);
 
     boolean isConnectionAvailable();
 

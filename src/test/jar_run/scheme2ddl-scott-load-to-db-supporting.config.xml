@@ -50,6 +50,7 @@
         <entry key="isExportDataTable" value="true"/>
         <entry key="isSortExportedDataTable" value="true"/>
         <entry key="sortingByColumnsRegexpList" value="^(id|id_.+|.+_id|uniq_.+)$"/>
+        <entry key="dataCharsetName" value="UTF-8"/>    <!-- Require for calculate lines length. Default value: UTF-8 -->
     </util:map>
 
     <!-- http://download.oracle.com/docs/cd/B19306_01/appdev.102/b14258/d_metada.htm#BGBJBFGE -->
@@ -75,6 +76,19 @@
         <!-- The 'isMorePrettyFormat' option adds a smart whitespace indentation and clever new lines  -->
         <property name="isMorePrettyFormat" value="true"/>
     </bean>
+
+    <!--
+        A list of types that are formatted by quotas and '||' operator of each line of VARCHAR (strings) values.
+        Requires for proper exporting from DDL to scheme (quoted danger symbols, like: @ ; and others)
+        Warning! The 'COMMENT ON TABLE' statement does not support the concatenation operator (||).
+            So, do not use the 'TABLE' and 'VIEW' parameters in this listing.
+    -->
+    <util:list id="typesQuotesFormating">
+        <value>PACKAGE</value>
+        <value>FUNCTION</value>
+        <value>PROCEDURE</value>
+        <value>TRIGGER</value>
+    </util:list>
 
     <!-- rules for construct filenames  -->
     <bean id="fileNameConstructor" class="com.googlecode.scheme2ddl.FileNameConstructor">
@@ -229,7 +243,7 @@
 
     <!--
          The "includesDataTables" uses for overriding "excludesDataTables" and for limiting number of data tables rows.
-         The "includesDataTables" has more priority then "excludesDataTables".
+         The "maxRowsExport" in "includesDataTables" has more priority then "excludesDataTables".
          The "maxRowsExport" setting limits number of rows and can take three values:
             0  - (default value) need to export unlimited rows of the object's table
             -1 - do not export the whole table data
@@ -237,14 +251,14 @@
     -->
     <util:map id="includesDataTables">
         <entry key="SCOTT.TAB2"><util:properties><prop key="maxRowsExport">3</prop><prop key="where">LENGTH(column1) != 4</prop></util:properties></entry>   <!-- The "maxRowsExport" setting limits number of rows  -->
-        <entry key="SCOTT.TAB3"><util:properties><prop key="where">lower(name) like '%у%'</prop></util:properties></entry> <!-- used "WHERE" arguments for this tables -->
-
-        <entry key="*"><util:properties><prop key="maxRowsExport">200</prop></util:properties></entry>
+        <entry key="SCOTT.TAB3"><util:properties><prop key="where">lower(name) like '%у%'</prop></util:properties></entry> <!-- used "WHERE" arguments for this table(s) -->
+        <entry key="SCOTT.SALGRADE"><util:properties><prop key="orderBy">grade DESC</prop></util:properties></entry> <!-- used "ORDER BY" arguments for this table(s). The 'isSortExportedDataTable' parameter in the 'settingsUserObjectProcessor' map must be true for working "ORDER BY". -->
+        <!--entry key="*"><util:properties><prop key="maxRowsExport">200</prop></util:properties></entry-->
     </util:map>
 
     <!-- Below tables data will exlude from export processing -->
     <util:list id="excludesDataTables">
-        <value>SCOTT.TAB3</value>
+        <value>SCOTT.TAB8_EXCLUDED</value>
         <value>SCOTT.TAB2</value>   <!-- SCOTT.TAB2 dont excludes, because contains in includesDataTables -->
     </util:list>
 
