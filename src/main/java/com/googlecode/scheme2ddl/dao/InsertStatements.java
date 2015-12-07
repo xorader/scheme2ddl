@@ -355,6 +355,11 @@ public class InsertStatements {
             if (bestRowIdentifier != null)
                 query_string += " ORDER BY " + bestRowIdentifier;
         }
+
+        File file = new File(absoluteFileName);
+        FileUtils.touch(file);  // create new file with directories hierarchy
+        log.info(String.format("Export data table %s to file %s", fullTableName.toLowerCase(), file.getAbsolutePath()));
+
         Statement stmt = conn.createStatement();
         ResultSet rs = stmt.executeQuery(query_string);
         ResultSetMetaData rsmd = rs.getMetaData();
@@ -372,10 +377,6 @@ public class InsertStatements {
             columnNames += columnName;
             columnNamesArray[i] = columnName;
         }
-
-        File file = new File(absoluteFileName);
-        FileUtils.touch(file);  // create new file with directories hierarchy
-        log.info(String.format("Export data table %s to file %s", fullTableName.toLowerCase(), file.getAbsolutePath()));
 
         String limitRowsComment = tableProperty.maxRowsExport != TableExportProperty.unlimitedExportData ? String.format("  [limited by %d rows]", tableProperty.maxRowsExport) : "";
 
@@ -463,7 +464,7 @@ public class InsertStatements {
                          * Import CLOB/BLOB data to "<column_name>.<current Primary Key value>.lob_data" file
                          */
                         String outputBinaryFileName = FilenameUtils.separatorsToSystem(outputPath + "/"
-                                + map2FileNameStatic(schema_name, "DATA_TABLE", tableName, preparedTemplateDataLob, columnNamesArray[i] + "." + rs.getString(primaryKeyColumn), "lob_data"));
+                                + map2FileNameStatic(schema_name, "DATA_TABLE", tableName, preparedTemplateDataLob, columnNamesArray[i] + "." + rs.getString(primaryKeyColumn), columnTypes[i] == java.sql.Types.CLOB ? "clob_data" : "blob_data"));
                         File outputBinaryFile = new File(outputBinaryFileName);
                         log.debug(String.format("Export data table LOB '%s' column '%s' with id '%s' to file: %s",
                                     fullTableName.toLowerCase(), columnNamesArray[i], rs.getString(primaryKeyColumn), outputBinaryFile.getAbsolutePath()));
