@@ -21,6 +21,8 @@ public interface UserObjectDao {
 
     List<UserObject> addUser();
 
+    List<UserObject> findTablespaces();
+
     String findPrimaryDDL(String type, String name);
 
     String findDependentDLLByTypeName(String type, String parent_name, String parent_type);
@@ -30,6 +32,8 @@ public interface UserObjectDao {
     String findDbmsJobDDL(String name);
 
     String generateUserDDL(String name);
+
+    String generateTablespaceDDL(String name);
 
     void exportDataTable(UserObject userObject, TableExportProperty tableProperty, FileNameConstructor fileNameConstructor, boolean isSortExportedDataTable, String sortingByColumnsRegexpList, String dataCharsetName);
 

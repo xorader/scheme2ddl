@@ -37,6 +37,7 @@ public class Main {
     private static boolean justTestConnection = false;
     private static boolean skipPublicDbLinks = false;
     private static boolean replaceSequenceValues = false;
+    private static boolean processTablespaces = false;
     private static String customConfigLocation = null;
     private static String defaultConfigLocation = "scheme2ddl.config.xml";
     private static String dbUrl = null;
@@ -64,7 +65,7 @@ public class Main {
         if (justTestConnection) {
             testDBConnection(context);
         } else {
-            new UserObjectJobRunner().start(context, isLaunchedByDBA, outputPath);
+            new UserObjectJobRunner().start(context, isLaunchedByDBA, outputPath, processTablespaces);
         }
     }
 
@@ -253,6 +254,11 @@ public class Main {
                 } else if (key.equals("dataCharsetName")) {
                     dataCharsetName = settingsUserObjectProcessor.get(key);
                     continue;
+                } else if (key.equals("processTablespaces")) {
+                    if (!processTablespaces) {
+                        processTablespaces = Boolean.valueOf(settingsUserObjectProcessor.get(key));
+                    }
+                    continue;
                 }
                 tmp_settings.put(key, Boolean.valueOf(settingsUserObjectProcessor.get(key)));
             }
@@ -376,6 +382,7 @@ public class Main {
         msg.append("  -c, --config,           path to scheme2ddl config file (xml)" + lSep);
         msg.append("  -rsv,                      replace actual sequence values with 1 " + lSep);
         msg.append("  --replace-sequence-values, " + lSep);
+        msg.append("  -tbs,--process-tablespaces,  force export 'TABLESPACE' objects" + lSep);
         msg.append("  -tc,--test-connection,  test db connection available" + lSep);
         msg.append("  -version,               print version info and exit" + lSep);
         System.out.println(msg.toString());
@@ -418,7 +425,9 @@ public class Main {
                 i++;
             } else if (arg.equals("-tc") || arg.equals("--test-connection")) {
                 justTestConnection = true;
-            }   else if ((arg.equals("-rsv") || arg.equals("--replace-sequence-values"))) {
+            } else if ((arg.equals("-tbs") || arg.equals("--process-tablespaces"))) {
+                processTablespaces = true;
+            } else if ((arg.equals("-rsv") || arg.equals("--replace-sequence-values"))) {
                 replaceSequenceValues = true;
             } else if (arg.equals("-c") || arg.equals("--config")) {
                 customConfigLocation = args[i + 1];

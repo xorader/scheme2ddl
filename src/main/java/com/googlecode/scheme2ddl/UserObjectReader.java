@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.ArrayList;
 
 /**
  * @author A_Reshetnikov
@@ -30,9 +31,12 @@ public class UserObjectReader implements ItemReader<UserObject> {
     private boolean processPublicDbLinks = false;
     private boolean processDmbsJobs = false;
     private boolean processUserAndPermissions = false;
+    private boolean processSysOnlyTablespaces = false;
 
     @Value("#{jobParameters['schemaName']}")
     private String schemaName;
+    @Value("#{jobParameters['processSysOnlyTablespaces']}")
+    private boolean isProcessSysOnlyTablespaces = false;
 
 
     public synchronized UserObject read() throws Exception, UnexpectedInputException, ParseException, NonTransientResourceException {
@@ -48,7 +52,17 @@ public class UserObjectReader implements ItemReader<UserObject> {
 
     private synchronized void fillList() {
         log.info(String.format("Start getting of user object list in schema %s for processing", schemaName));
-        list = userObjectDao.findListForProccessing();
+        list = new ArrayList<UserObject>();
+
+        if (schemaName.equalsIgnoreCase("SYS")) {
+            list.addAll(userObjectDao.findTablespaces());
+
+            if (isProcessSysOnlyTablespaces) {
+                return;
+            }
+        }
+
+        list.addAll(userObjectDao.findListForProccessing());
         if (processPublicDbLinks) {
             list.addAll(userObjectDao.findPublicDbLinks());
         }
@@ -74,6 +88,10 @@ public class UserObjectReader implements ItemReader<UserObject> {
 
     public void setSchemaName(String schemaName) {
         this.schemaName = schemaName;
+    }
+
+    public void setProcessSysOnlyTablespaces(boolean processSysOnlyTablespaces) {
+        this.isProcessSysOnlyTablespaces = processSysOnlyTablespaces;
     }
 
     public void setProcessUserAndPermissions(boolean processUserAndPermissions) {

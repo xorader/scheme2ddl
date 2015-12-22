@@ -134,6 +134,20 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         return list;
     }
 
+    public List<UserObject> findTablespaces() {
+        String sql = "SELECT TABLESPACE_NAME AS object_name, 'TABLESPACE' AS object_type FROM dba_tablespaces";
+        try {
+            return getJdbcTemplate().query(sql, new UserObjectRowMapper());
+        } catch (BadSqlGrammarException e) {
+            log.info("Can not access to 'dba_tablespaces' table. This user has no grants for it, and so not getting tablespaces.");
+            return new ArrayList<UserObject>();
+        }
+    }
+
+    public String generateTablespaceDDL(final String name) {
+        return executeDbmsMetadataGetDdl("select dbms_metadata.get_ddl(?, ?) from dual", "TABLESPACE", name, null);
+    }
+
     public String generateUserDDL(final String name) {
         return (String) getJdbcTemplate().execute(new ConnectionCallback() {
             public String doInConnection(Connection connection) throws SQLException, DataAccessException {

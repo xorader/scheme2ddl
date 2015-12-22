@@ -51,6 +51,7 @@
         <entry key="isSortExportedDataTable" value="true"/>
         <entry key="sortingByColumnsRegexpList" value="^(id|id_.+|.+_id|uniq_.+)$"/>
         <entry key="dataCharsetName" value="UTF-8"/>    <!-- Require for calculate lines length. Default value: UTF-8 -->
+        <entry key="processTablespaces" value="true"/>  <!-- force export 'TABLESPACE' objects (for sys connection - to SYS schema directory) -->
     </util:map>
 
     <!-- http://download.oracle.com/docs/cd/B19306_01/appdev.102/b14258/d_metada.htm#BGBJBFGE -->
