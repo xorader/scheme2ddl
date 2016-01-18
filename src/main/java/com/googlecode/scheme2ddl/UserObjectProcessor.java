@@ -45,6 +45,8 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
             log.debug(String.format("Skipping processing of user object %s ", userObject));
             return null;
         }
+        ddlFormatter.setEncoder(dataCharsetName);
+
         ddl = map2Ddl(userObject);
         userObject.setFileName(fileNameConstructor.map2FileName(userObject));
 

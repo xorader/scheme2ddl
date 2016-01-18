@@ -49,8 +49,8 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                     " where t.generated = 'N' " +
                     "   and t.owner = '" + schemaName + "' " +
                     "   and not exists (select 1 " +
-                    "          from user_nested_tables unt" +
-                    "         where t.object_name = unt.table_name)" +
+                    "          from all_nested_tables unt" +
+                    "         where t.object_name = unt.table_name and t.owner = unt.owner)" +
                     " UNION ALL " +
                     " select rname as object_name, 'REFRESH_GROUP' as object_type " +
                     " from dba_refresh a " +
@@ -276,6 +276,8 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
              * Example and info taked from:
              *  - http://docs.oracle.com/cd/E11882_01/server.112/e22490/metadata_api.htm
              *  - http://docs.oracle.com/cd/E11882_01/appdev.112/e40758/d_metada.htm
+             *
+             * Anyway, I do not known how to exclude system generated CONSTRAINTS (for nested tables, for example).
              */
             final String query =
             "DECLARE\n" +
