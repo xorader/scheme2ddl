@@ -28,6 +28,9 @@ import oracle.sql.*;
 // Needed for Oracle JDBC Extended Classes
 import oracle.jdbc.*;
 
+// for this import need the 'xdb6.jar' and 'xmlparserv2.jar' libraries
+import oracle.xdb.XMLType;
+
 /**
  * @author A_Molchanov
  * @since Date: 17.11.2015
@@ -164,13 +167,13 @@ public class InsertStatements {
         return null;
     }
 
-    private static boolean isTableContainLobColumn(final DatabaseMetaData meta, final String schema_name, final String tableName)
+    private static boolean isTableContainLobOrXmlColumn(final DatabaseMetaData meta, final String schema_name, final String tableName)
         throws SQLException
     {
         ResultSet rs = meta.getColumns(null, schema_name, tableName, null);
         while(rs.next()) {
             int columnType = rs.getInt("DATA_TYPE");
-            if (columnType == java.sql.Types.CLOB || columnType == java.sql.Types.BLOB)
+            if (columnType == java.sql.Types.CLOB || columnType == java.sql.Types.BLOB || columnType == oracle.xdb.XMLType._SQL_TYPECODE || columnType == java.sql.Types.SQLXML)
                 return true;
         }
         return false;
@@ -313,22 +316,47 @@ public class InsertStatements {
                     resultString += formatColumnValue("null");
                 }
                 break;
-            case java.sql.Types.CLOB:
-            case java.sql.Types.BLOB:
-                /* LOB data will exported below to separate file */
+            case oracle.xdb.XMLType._SQL_TYPECODE:  // 2007
+            case java.sql.Types.SQLXML: // 2009
+            //case OracleTypes.OPAQUE: // 2007 (we know it is an XMLType). Duplicate case label.
                 resultString += formatColumnValue("null");
-
                 if (primaryKeyValue == null) {
-                    /*
-                     * The Primary Key has not been found.
-                     * Skip exporting any LOB data for this table.
-                     */
+                    // The Primary Key has not been found.
+                    // Skip exporting any XMLTYPE data for this table.
+                    break;
+                }
+                // the same result like the following line: XMLType xmlData = XMLType.createXML((OPAQUE)tableCell);
+                XMLType xmlData = (XMLType) ((OPAQUE)tableCell).toJdbc();   // Directly Returning XMLType Data
+                if (xmlData == null) {
+                    break;
+                }
+                String xmlString = xmlData.getStringVal();
+                if (xmlString == null) {
                     break;
                 }
 
-                /*
-                 * Import CLOB/BLOB data to "<column_name>.<current Primary Key value>.lob_data" file
-                 */
+                final String outputXmlFileName = FilenameUtils.separatorsToSystem(outputPath + "/"
+                        + map2FileNameStatic(schema_name, "DATA_TABLE", tableName, preparedTemplateDataLob, columnName + "." + primaryKeyValue, "xmltype"));
+                File  outputXmlFile = new File(outputXmlFileName);
+                log.debug(String.format("Export data table XMLTYPE '%s' column '%s' with id '%s' to file: %s",
+                            fullTableName.toLowerCase(), columnName, primaryKeyValue, outputXmlFile.getAbsolutePath()));
+                BufferedWriter xmlOut = new BufferedWriter(new FileWriter(outputXmlFile));
+                xmlOut.write(xmlString);
+                xmlOut.close();
+                break;
+
+            case java.sql.Types.CLOB:
+            case java.sql.Types.BLOB:
+                // LOB data will exported below to separate file
+                resultString += formatColumnValue("null");
+
+                if (primaryKeyValue == null) {
+                     // The Primary Key has not been found.
+                     // Skip exporting any LOB data for this table.
+                    break;
+                }
+
+                // Import CLOB/BLOB data to "<column_name>.<current Primary Key value>.lob_data" file
                 final String outputBinaryFileName = FilenameUtils.separatorsToSystem(outputPath + "/"
                         + map2FileNameStatic(schema_name, "DATA_TABLE", tableName, preparedTemplateDataLob, columnName + "." + primaryKeyValue, type == java.sql.Types.CLOB ? "clob_data" : "blob_data"));
                 File outputBinaryFile = new File(outputBinaryFileName);
@@ -378,6 +406,7 @@ public class InsertStatements {
                 }
                 break;
 
+                // type for nested tables: http://www.orafaq.com/wiki/NESTED_TABLE
             case java.sql.Types.ARRAY:
                 ARRAY cellDataArray = (ARRAY) tableCell;
                 if (cellDataArray == null) {
@@ -402,6 +431,7 @@ public class InsertStatements {
                 resultString += formatColumnValue(")");
                 break;
 
+                // type for nested tables: http://www.orafaq.com/wiki/NESTED_TABLE
             case java.sql.Types.STRUCT:
                 STRUCT cellStruct = (STRUCT) tableCell;
                 StructDescriptor structDesc = cellStruct.getDescriptor();
@@ -425,16 +455,17 @@ public class InsertStatements {
 
             default:
                 String defaultColumnValue;
+                if (!isPresentUnknownType) {
+                    log.info(String.format("    Warning!!! Try to take data from the '%s' table from the '%s' column with unknown column type: '%s' [%d]", fullTableName, columnName, typeName, type));
+                    isPresentUnknownType = true;
+                }
+
                 try {
                     defaultColumnValue = tableCell.stringValue();
                     if (defaultColumnValue == null) {
-                        throw new Exception("Unknown column type");
+                        throw new Exception("Take string from unknown column type");
                     }
                 } catch (Exception e) {
-                    if (!isPresentUnknownType) {
-                        log.info(String.format("   !!!> Error with take data from the '%s' table from the '%s' column with unknown column type: '%s' [%d]", fullTableName, columnName, typeName, type));
-                        isPresentUnknownType = true;
-                    }
                     defaultColumnValue = null;
                 }
 
@@ -454,7 +485,7 @@ public class InsertStatements {
     }
 
     /*
-     *  generate DATA_TABLE/<tableName>.sql file (with CLOB/BLOB files additional)
+     *  generate DATA_TABLE/<tableName>.sql file (with CLOB/BLOB/XMLTYPE files additional)
      *
      *  The usefull links:
      *        - http://www.idevelopment.info/data/Programming/java/jdbc/LOBS/BLOBFileExample.java
@@ -462,6 +493,7 @@ public class InsertStatements {
      *        - http://asktom.oracle.com/pls/asktom/f?p=100:11:::::P11_QUESTION_ID:6379798216275
      *        - http://stackoverflow.com/questions/8348427/how-to-write-update-oracle-blob-in-a-reliable-way
      *        - http://stackoverflow.com/questions/862355/overcomplicated-oracle-jdbc-blob-handling
+     *        - http://docs.oracle.com/cd/B28359_01/appdev.111/b28369/xdb11jav.htm (Java DOM API for XMLType)
      */
     public void generateInsertStatements(Connection conn, String schema_name, String tableName, final TableExportProperty tableProperty,
             final String preparedTemplate, final String preparedTemplateDataLob, final String outputPath,
@@ -478,32 +510,30 @@ public class InsertStatements {
             fullTableName = "\"" + schema_name + "\".\"" + tableName + "\"";
         }
 
-        String primaryKeyColumn = null;     // column name, using for creating LOB-files
+        String primaryKeyColumn = null;     // column name, using for creating LOB-files or XMLTYPE-files
         boolean isPrimaryKeyColumnSearched = false;
-        boolean tableContainLobColumn = false;
+        boolean tableContainLobXmlColumn = false;
 
         DatabaseMetaData conn_meta = conn.getMetaData();
         OracleConnection oraConnection = (OracleConnection) conn_meta.getConnection();
 
-        /*
-         *  finding the Primary Key column in this table for CLOB/BLOB data exporting
-         */
-        if (isTableContainLobColumn(conn_meta, schema_name, tableName)) {
-            tableContainLobColumn = true;
+        // finding the Primary Key column in this table for CLOB/BLOB/XMLTYPE data exporting
+        if (isTableContainLobOrXmlColumn(conn_meta, schema_name, tableName)) {
+            tableContainLobXmlColumn = true;
             primaryKeyColumn = getTablePrimaryKeyColumn(conn_meta, schema_name, tableName);
             if (primaryKeyColumn == null) {
                 primaryKeyColumn = getTableUniqueIdxColumn(conn_meta, schema_name, tableName, true, sortingByColumnsRegexpList);
             }
             if (primaryKeyColumn == null) {
-                /* primary key was not found. CLOB/BLOB columns can not be exported */
-                log.info(String.format("   ---> Can not save blob/clob column(s) of the '%s' table, because can't find Primary Key for this table.", fullTableName));
+                // primary key was not found. CLOB/BLOB/XMLTYPE columns can not be exported
+                log.info(String.format("   ---> Can not save blob/clob/xml column(s) of the '%s' table, because can't find Primary Key for this table.", fullTableName));
             } else {
-                /* Create the 'primary_key' file with primary key column name for this table (for BLOB/CLOB columns identity). */
+                // Create the 'primary_key' file with primary key column name for this table (for BLOB/CLOB/XMLTYPE columns identity).
                 String primaryKeyFileName = FilenameUtils.separatorsToSystem(outputPath + "/"
                         + map2FileNameStatic(schema_name, "DATA_TABLE", tableName, preparedTemplateDataLob, "_", "primary_key"));
                 File filePK = new File(primaryKeyFileName);
                 FileUtils.writeStringToFile(filePK, primaryKeyColumn);
-                log.info(String.format("Save column name with primary key of the '%s' table for LOB column(s) to file: %s",
+                log.info(String.format("Save column name with primary key of the '%s' table for LOB/XMLTYPE column(s) to file: %s",
                             fullTableName.toLowerCase(), filePK.getAbsolutePath()));
             }
             isPrimaryKeyColumnSearched = true;
@@ -582,7 +612,7 @@ public class InsertStatements {
             }
 
             final String primaryKeyValue;
-            if (tableContainLobColumn && primaryKeyColumn != null) {
+            if (tableContainLobXmlColumn && primaryKeyColumn != null) {
                 primaryKeyValue = rs.getString(primaryKeyColumn);
             } else {
                 primaryKeyValue = null;

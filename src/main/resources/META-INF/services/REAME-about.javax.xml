@@ -1,0 +1,25 @@
+http://stackoverflow.com/questions/11578697/using-oracle-xmltype-column-in-hibernate/18282094#18282094
+https://community.oracle.com/thread/1080787
+
+This empty files require for property working taking XMLType from Oracle DB by the oracle.xdb.XMLType library with the xmlparserv2.jar.
+
+After including %ORACLE_11G_HOME%/lib/xmlparserv2.jar (1350kb) in your classpath to solve compile errors, you now get runtime errors from your application server...
+---
+ <Line 43, Column 57>: XML-24509: (Error) Duplicated definition for: 'identifiedType'
+ <Line 60, Column 28>: XML-24509: (Error) Duplicated definition for: 'beans'
+ <Line 145, Column 34>: XML-24509: (Error) Duplicated definition for: 'description'
+ <Line 157, Column 29>: XML-24509: (Error) Duplicated definition for: 'import'
+ ... more ...
+ Can not build schema 'http://www.springframework.org/schema/util' located at 'http://www.springframework.org/schema/util/spring-util-2.0.xsd'
+---
+
+ WHY THE ERRORS?
+The xmlparserv2.jar uses the JAR Services API (Service Provider Mechanism) to change the default javax.xml classes used for the SAXParserFactory, DocumentBuilderFactory and TransformerFactory.
+
+ SOLUTION:
+In a maven spring project, override the xmlparserv2.jar settings by creating the following files in the %PROJECT_HOME%/src/main/resources directory.
+ %PROJECT_HOME%/src/main/resources/META-INF/services/javax.xml.parsers.DocumentBuilderFactory (which defines com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl as the default)
+ %PROJECT_HOME%/src/main/resources/META-INF/services/javax.xml.parsers.SAXParserFactory (which defines com.sun.org.apache.xerces.internal.jaxp.SAXParserFactoryImpl as the default)
+ %PROJECT_HOME%/src/main/resources/META-INF/services/javax.xml.transform.TransformerFactory (which defines com.sun.org.apache.xalan.internal.xsltc.trax.TransformerFactoryImpl as the default)
+
+
