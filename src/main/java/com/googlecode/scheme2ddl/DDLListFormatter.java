@@ -59,7 +59,7 @@ public class DDLListFormatter {
 
     private static final Pattern patternConstraintUnique = Pattern.compile("^[ \t\r\n]*ALTER TABLE \"([^\"]+)\"\\.\"([^\"]+)\" ADD UNIQUE \\(\"([^\"]+)\"\\).*", Pattern.DOTALL);
     /**
-     *  Find ddl's like: ALTER TABLE "SCOTT"."TAB9_NESTED" ADD UNIQUE ("OWNERS") ...;
+     *  Find ddl like: ALTER TABLE "SCOTT"."TAB9_NESTED" ADD UNIQUE ("OWNERS") ...;
      *  and return true if it is system generated object ddl;
      */
     public boolean isDllConstraintUniqueSysGenerated(final String oneDdl, final UserObjectDao userObjectDao) {
@@ -71,5 +71,34 @@ public class DDLListFormatter {
         // arguments: owner, tableName, columnName
         return userObjectDao.isConstraintUniqueSysGenerated(matchDdl.group(1), matchDdl.group(2), matchDdl.group(3));
     }
+
+    private static final Pattern patternConstraintPK = Pattern.compile("^[ \t\r\n]*ALTER TABLE \"([^\"]+)\"\\.\"[^\"]+\" ADD CONSTRAINT \"([^\"]+)\" PRIMARY KEY \\(\"[^\"]+\"\\).*", Pattern.DOTALL);
+    /**
+     * Find ddl like: ALTER TABLE "SCOTT"."TABA_03_INDXORG" ADD CONSTRAINT "TABA_03_INDXORG_PK" PRIMARY KEY ("ID") ...;
+     * and return true if it is PK(primary key) dll for IOT(index-organized table) tables.
+     */
+    public boolean isDllConstraintPrimaryKeyWithIOT(final String oneDdl, final UserObjectDao userObjectDao) {
+        Matcher matchDdl = patternConstraintPK.matcher(oneDdl);
+        if (!matchDdl.find()) {
+            return false;
+        }
+        // arguments: PKname, PKowner
+        return userObjectDao.isConstraintPKForIOT(matchDdl.group(2), matchDdl.group(1));
+    }
+
+    private static final Pattern patternUniqueIndex = Pattern.compile("^[ \t\r\n]*CREATE UNIQUE INDEX \"([^\"]+)\"\\.\"([^\"]+)\" ON \"[^\"]+\"\\.\"[^\"]+\" \\(\"[^\"]+\"\\).*", Pattern.DOTALL);
+    /**
+     * Find ddl like: CREATE UNIQUE INDEX "SCOTT"."TABA_03_INDXORG_PK" ON "SCOTT"."TABA_03_INDXORG" ("ID") ...;
+     * and return true if it is index ddl for IOT(index-organized table) tables.
+     */
+    public boolean isDllIndexUniqueWithIOT(final String oneDdl, final UserObjectDao userObjectDao) {
+        Matcher matchDdl = patternUniqueIndex.matcher(oneDdl);
+        if (!matchDdl.find()) {
+            return false;
+        }
+        // arguments: indexName, indexOwner
+        return userObjectDao.isIndexForIOT(matchDdl.group(2), matchDdl.group(1));
+    }
+
 }
 

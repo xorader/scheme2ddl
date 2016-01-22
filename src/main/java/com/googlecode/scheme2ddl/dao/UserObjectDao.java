@@ -39,6 +39,10 @@ public interface UserObjectDao {
 
     boolean isConstraintUniqueSysGenerated(String ownerConstraint, String tableConstraint, String columnConstraint);
 
+    boolean isConstraintPKForIOT(String PKname, String PKOwner);
+
+    boolean isIndexForIOT(String indexName, String indexOwner);
+
     boolean isConnectionAvailable();
 
 }

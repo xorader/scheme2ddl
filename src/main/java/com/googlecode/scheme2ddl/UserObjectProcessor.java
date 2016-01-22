@@ -182,6 +182,8 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
                 {
                     if (dependedType.equals("CONSTRAINT")) {
                         resultDDL = filterSysGeneratedStrangeConstraintDDL(resultDDL);
+                    } else if (dependedType.equals("INDEX")) {
+                        resultDDL = filterSysGeneratedStrangeIndexDDL(resultDDL);
                     }
 
                     if (resultDDL != null && !resultDDL.equals(""))
@@ -200,15 +202,35 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
     }
 
     /**
-     * Oracle generate strange CONSTRAINT DDL for table columns with nested tables.
-     * So, do filter it.
+     * Filter ddl constraints:
+     * 1) Oracle generate strange CONSTRAINT DDL for table columns with nested tables.
+     * 2) Oracle generate ddls for PK CONSTRAINTs for IOT (index-organized table) tables. Not need it (because this PK defines in tables creating). http://www.orafaq.com/wiki/Index-organized_table
      */
     private String filterSysGeneratedStrangeConstraintDDL(final String allDdl) {
         String resultAllDdl = "";
         DDLListFormatter ddlList = new DDLListFormatter(allDdl);
 
         for (String oneDdl = ddlList.getNextOneDdl(); oneDdl != null; oneDdl = ddlList.getNextOneDdl()) {
-            if (!ddlList.isDllConstraintUniqueSysGenerated(oneDdl, userObjectDao)) {
+            if (!ddlList.isDllConstraintUniqueSysGenerated(oneDdl, userObjectDao)
+                && !ddlList.isDllConstraintPrimaryKeyWithIOT(oneDdl, userObjectDao))
+            {
+                resultAllDdl += oneDdl;
+            }
+        }
+        return resultAllDdl;
+    }
+
+    /**
+     * Index ddl constraints:
+     * 1) Oracle generate index ddls for IOT (index-organized table) tables. Not need it (because all columns of IOT is indexed already).
+     */
+    private String filterSysGeneratedStrangeIndexDDL(final String allDdl) {
+        String resultAllDdl = "";
+        DDLListFormatter ddlList = new DDLListFormatter(allDdl);
+
+        for (String oneDdl = ddlList.getNextOneDdl(); oneDdl != null; oneDdl = ddlList.getNextOneDdl()) {
+            if (!ddlList.isDllIndexUniqueWithIOT(oneDdl, userObjectDao))
+            {
                 resultAllDdl += oneDdl;
             }
         }

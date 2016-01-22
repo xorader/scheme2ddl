@@ -441,4 +441,35 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         }
         return false;
     }
+
+    public boolean isConstraintPKForIOT(final String PKname, final String PKOwner) {
+        final String sqlQueryPKConstWithIOT = "SELECT 1 FROM all_constraints cn, all_indexes ii "
+            + "WHERE cn.constraint_name = ? AND cn.owner = ?"
+            + "AND cn.index_name = ii.index_name AND cn.constraint_type = 'P' "
+            + "AND ii.index_type = 'IOT - TOP'";
+        try {
+            final int resultCounter = getJdbcTemplate().queryForInt(sqlQueryPKConstWithIOT, PKname, PKOwner);
+            if (resultCounter > 0) {
+                return true;
+            }
+        } catch (DataAccessException e) {
+            return false;
+        }
+        return false;
+    }
+
+    public boolean isIndexForIOT(final String indexName, final String indexOwner) {
+        final String sqlQueryIndexWithIOT = "SELECT 1 FROM all_indexes "
+            + "WHERE index_name = ? AND owner = ?"
+            + "AND index_type = 'IOT - TOP'";
+        try {
+            final int resultCounter = getJdbcTemplate().queryForInt(sqlQueryIndexWithIOT, indexName, indexOwner);
+            if (resultCounter > 0) {
+                return true;
+            }
+        } catch (DataAccessException e) {
+            return false;
+        }
+        return false;
+    }
 }
