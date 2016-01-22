@@ -180,7 +180,12 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
                         || (dependenciesInSeparateFiles.get("*") != null && dependenciesInSeparateFiles.get("*").contains(dependedType))
                     ))
                 {
-                    if (resultDDL != null && !resultDDL.equals("")) {
+                    if (dependedType.equals("CONSTRAINT")) {
+                        resultDDL = filterSysGeneratedStrangeConstraintDDL(resultDDL);
+                    }
+
+                    if (resultDDL != null && !resultDDL.equals(""))
+                    {
                         userObject.setDependentDDL(dependedType,  ddlFormatter.formatDDL(resultDDL),
                                 fileNameConstructor.map2FileNameRaw(userObject.getSchema(), dependedType, userObject.getName()));
                     }
@@ -194,6 +199,21 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
         return ddlFormatter.formatDDL(res);
     }
 
+    /**
+     * Oracle generate strange CONSTRAINT DDL for table columns with nested tables.
+     * So, do filter it.
+     */
+    private String filterSysGeneratedStrangeConstraintDDL(final String allDdl) {
+        String resultAllDdl = "";
+        DDLListFormatter ddlList = new DDLListFormatter(allDdl);
+
+        for (String oneDdl = ddlList.getNextOneDdl(); oneDdl != null; oneDdl = ddlList.getNextOneDdl()) {
+            if (!ddlList.isDllConstraintUniqueSysGenerated(oneDdl, userObjectDao)) {
+                resultAllDdl += oneDdl;
+            }
+        }
+        return resultAllDdl;
+    }
 
     public void setExcludes(Map excludes) {
         this.excludes = excludes;

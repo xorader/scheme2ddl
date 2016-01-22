@@ -37,6 +37,8 @@ public interface UserObjectDao {
 
     void exportDataTable(UserObject userObject, TableExportProperty tableProperty, FileNameConstructor fileNameConstructor, boolean isSortExportedDataTable, String sortingByColumnsRegexpList, String dataCharsetName);
 
+    boolean isConstraintUniqueSysGenerated(String ownerConstraint, String tableConstraint, String columnConstraint);
+
     boolean isConnectionAvailable();
 
 }

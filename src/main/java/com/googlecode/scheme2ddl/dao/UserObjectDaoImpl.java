@@ -425,4 +425,20 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
             }
         });
     }
+
+    public boolean isConstraintUniqueSysGenerated(final String ownerConstraint, final String tableConstraint, final String columnConstraint) {
+        final String sqlQueryGenConst = "SELECT 1 FROM all_constraints cn, all_ind_columns ix "
+            + "WHERE cn.owner = ? AND cn.table_name = ? AND ix.column_name = ? "
+            + "AND cn.owner = ix.index_owner AND cn.constraint_type = 'U' "
+            + "AND cn.generated = 'GENERATED NAME' AND cn.index_name = ix.index_name";
+        try {
+            final int resultCounter = getJdbcTemplate().queryForInt(sqlQueryGenConst, ownerConstraint, tableConstraint, columnConstraint);
+            if (resultCounter > 0) {
+                return true;
+            }
+        } catch (DataAccessException e) {
+            return false;
+        }
+        return false;
+    }
 }
