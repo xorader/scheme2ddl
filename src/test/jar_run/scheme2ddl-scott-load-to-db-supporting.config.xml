@@ -52,6 +52,8 @@
         <entry key="sortingByColumnsRegexpList" value="^(id|id_.+|.+_id|uniq_.+)$"/>
         <entry key="dataCharsetName" value="UTF-8"/>    <!-- Require for calculate lines length. Default value: UTF-8 -->
         <entry key="processTablespaces" value="true"/>  <!-- force export 'TABLESPACE' objects (for sys connection - to SYS schema directory) -->
+        <entry key="fixTriggerWithoutObjectnameOwner" value="true"/>
+        <entry key="fixJobnameWithoutOwner" value="true"/>
     </util:map>
 
     <!-- http://download.oracle.com/docs/cd/B19306_01/appdev.102/b14258/d_metada.htm#BGBJBFGE -->
@@ -268,11 +270,11 @@
          Value - is set of patterns for exlude
          Currently only '*' wildcard supported -->
     <util:map id="excludes">
-        <entry key="*">
+        <!--entry key="*">
             <set>
                 <value>*_*_temp_*</value>
             </set>
-        </entry>
+        </entry-->
         <!--
         <entry key="VIEW">
             <set>
@@ -317,8 +319,7 @@
                 <value>ORDDATA.ORDDCM_PREFS_VALID_VALUES_TAB</value>
                 <value>SYSMAN.MGMT_DELTA_SUMMARY_ERRORS</value>
                 <value>SYSMAN.PARAM_VALUES_TAB</value>
-                <value>*DR$LOAD_FILE_IDX$*</value>
-                <value>*NESTED_CHAIRS</value>
+                <value>*\.DR\$*\$?</value>  <!-- don't export tables, which auto generated for Indexes with INDEXTYPE IS "CTXSYS"."CONTEXT" (and like others) -->
             </set>
         </entry>
     </util:map>

@@ -35,6 +35,8 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
     private boolean isExportDataTable = false;
     private boolean isSortExportedDataTable = false;
     private boolean replaceSequenceValues = false;
+    private boolean fixTriggerWithoutObjectnameOwner = false;
+    private boolean fixJobnameWithoutOwner = false;
     private String sortingByColumnsRegexpList = null;
     private String dataCharsetName = null;
 
@@ -169,7 +171,12 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
         String res = userObjectDao.findPrimaryDDL(map2TypeForDBMS(userObject.getType()), userObject.getName());
         if (userObject.getType().equals("SEQUENCE") && replaceSequenceValues) {
             res = ddlFormatter.replaceActualSequenceValueWithOne(res);
+        } else if (userObject.getType().equals("TRIGGER") && fixTriggerWithoutObjectnameOwner) {
+            res = DDLFormatter.checkAndFixTriggerWithoutObjectnameOwner(res);
+        } else if (userObject.getType().equals("JOB") && fixJobnameWithoutOwner) {
+            res = DDLFormatter.checkAndFixJobnameWithoutOwner(res, userObject.getSchema());
         }
+
         Set<String> dependedTypes = dependencies.get(userObject.getType());
         if (dependedTypes != null) {
             for (String dependedType : dependedTypes) {
@@ -296,6 +303,16 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
         {
             this.replaceSequenceValues = true;
         }
+        if (settingsUserObjectProcessor.get("fixTriggerWithoutObjectnameOwner") != null
+                && settingsUserObjectProcessor.get("fixTriggerWithoutObjectnameOwner"))
+        {
+            this.fixTriggerWithoutObjectnameOwner = true;
+        }
+        if (settingsUserObjectProcessor.get("fixJobnameWithoutOwner") != null
+                && settingsUserObjectProcessor.get("fixJobnameWithoutOwner"))
+        {
+            this.fixJobnameWithoutOwner = true;
+        }
     }
 
     public void setSortingByColumnsRegexpList(String list) {
@@ -308,5 +325,13 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
 
     public void setReplaceSequenceValues(boolean replaceSequenceValues) {
         this.replaceSequenceValues = replaceSequenceValues;
+    }
+
+    public void setFixTriggerWithoutObjectnameOwner(boolean fixTriggerWithoutObjectnameOwner) {
+        this.fixTriggerWithoutObjectnameOwner = fixTriggerWithoutObjectnameOwner;
+    }
+
+    public void setFixJobnameWithoutOwner(boolean fixJobnameWithoutOwner) {
+        this.fixJobnameWithoutOwner = fixJobnameWithoutOwner;
     }
 }

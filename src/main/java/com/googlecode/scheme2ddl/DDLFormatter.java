@@ -359,4 +359,53 @@ public class DDLFormatter {
         }
         return result + ddl.substring(startLinePosition, position);
     }
+
+    private static final Pattern patternTriggerWithoutObjectnameOwner = Pattern.compile(
+            "(?<part1>[ \t\r\n]*CREATE OR REPLACE TRIGGER \")(?<owner>[^\"]+)(?<part2>\"\\.\")(?<triggername>[^\"]+)"
+            + "(?<part3>\"[ \r\n\t]+[^\n]+[ \t\r\n]+ON[ \t]+)(?<ownerobj>[^\\. \t]+\\.|)(?<obj>[^\\. \r\n\"]+)(?<part4>[ \t\r\n].*)",
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+    /**
+     * Find trigger ddl like:  CREATE OR REPLACE TRIGGER "SCOTT"."TRIGGER_DEPT" AFTER INSERT ON DEPT
+     * and replace "DEPT" to "SCOTT.DEPT" (if found).
+     */
+    public static String checkAndFixTriggerWithoutObjectnameOwner(final String oneDdl) {
+        Matcher matchDdl = patternTriggerWithoutObjectnameOwner.matcher(oneDdl);
+
+        if (!matchDdl.find()) {
+            return oneDdl;
+        }
+
+        if (!matchDdl.group("ownerobj").equals("")) {
+            return oneDdl;
+        }
+
+        return matchDdl.group("part1") + matchDdl.group("owner") + matchDdl.group("part2")
+            + matchDdl.group("triggername") + matchDdl.group("part3")
+            + matchDdl.group("owner") + "." + matchDdl.group("obj") + matchDdl.group("part4");
+    }
+
+    private static final Pattern patternJobWithoutOwner = Pattern.compile(
+            "(?<part1>[ \t\r\n]*BEGIN[ \t\r\n]+dbms_scheduler.create_job\\(([ \t\r\n]*job_name[ ]*=>[ ]*|)')(?<owner>\"[^\"]+\"\\.|)(?<jobname>\"[^\"]+\")"
+            + "(?<part2>'[ \t\r\n]*,.*)",
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+    /**
+     * Find JOB without owner in name, ddl like:  BEGIN dbms_scheduler.create_job('"SOME_JOB"', job_type...
+     * and add owner in name like: BEGIN dbms_scheduler.create_job('"SCOTT"."SOME_JOB"', job_type...
+     */
+    public static String checkAndFixJobnameWithoutOwner(final String oneDdl, final String schemaName) {
+        if (schemaName == null || schemaName.equals("")) {
+            return oneDdl;
+        }
+        Matcher matchDdl = patternJobWithoutOwner.matcher(oneDdl);
+
+        if (!matchDdl.find()) {
+            return oneDdl;
+        }
+
+        if (!matchDdl.group("owner").equals("")) {
+            return oneDdl;
+        }
+
+        return matchDdl.group("part1") + "\"" + schemaName + "\"." + matchDdl.group("jobname") + matchDdl.group("part2");
+    }
 }

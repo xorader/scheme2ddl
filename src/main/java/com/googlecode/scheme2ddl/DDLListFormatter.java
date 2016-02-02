@@ -57,9 +57,10 @@ public class DDLListFormatter {
         return allDdl.substring(resultDdlBeginPointer, endDdlPosition);
     }
 
-    private static final Pattern patternConstraintUnique = Pattern.compile("^[ \t\r\n]*ALTER TABLE \"([^\"]+)\"\\.\"([^\"]+)\" ADD UNIQUE \\(\"([^\"]+)\"\\).*", Pattern.DOTALL);
+    private static final Pattern patternConstraintUnique = Pattern.compile("^[ \t\r\n]*ALTER TABLE \"([^\"]+)\"\\.\"([^\"]+)\" ADD (|CONSTRAINT \"[^\"]+\" )UNIQUE \\(\"([^\"]+)\"\\).*", Pattern.DOTALL);
     /**
      *  Find ddl like: ALTER TABLE "SCOTT"."TAB9_NESTED" ADD UNIQUE ("OWNERS") ...;
+     *             or: ALTER TABLE "SCOTT"."TAB9_NESTED" ADD CONSTRAINT "U1_TAB9_NESTED" UNIQUE ("OWNERS") ...;
      *  and return true if it is system generated object ddl;
      */
     public boolean isDllConstraintUniqueSysGenerated(final String oneDdl, final UserObjectDao userObjectDao) {
@@ -69,12 +70,13 @@ public class DDLListFormatter {
         }
 
         // arguments: owner, tableName, columnName
-        return userObjectDao.isConstraintUniqueSysGenerated(matchDdl.group(1), matchDdl.group(2), matchDdl.group(3));
+        return userObjectDao.isConstraintUniqueSysGenerated(matchDdl.group(1), matchDdl.group(2), matchDdl.group(4));
     }
 
-    private static final Pattern patternConstraintPK = Pattern.compile("^[ \t\r\n]*ALTER TABLE \"([^\"]+)\"\\.\"[^\"]+\" ADD CONSTRAINT \"([^\"]+)\" PRIMARY KEY \\(\"[^\"]+\"\\).*", Pattern.DOTALL);
+    private static final Pattern patternConstraintPK = Pattern.compile("^[ \t\r\n]*ALTER TABLE \"([^\"]+)\"\\.\"[^\"]+\" ADD CONSTRAINT \"([^\"]+)\" PRIMARY KEY \\(\"[^\\)]+\\).*", Pattern.DOTALL);
     /**
      * Find ddl like: ALTER TABLE "SCOTT"."TABA_03_INDXORG" ADD CONSTRAINT "TABA_03_INDXORG_PK" PRIMARY KEY ("ID") ...;
+     *          or:   ALTER TABLE "SCOTT"."TABA_03_INDXORG" ADD CONSTRAINT "TABA_03_INDXORG_PK" PRIMARY KEY ("ID1", "ID2") ...;
      * and return true if it is PK(primary key) dll for IOT(index-organized table) tables.
      */
     public boolean isDllConstraintPrimaryKeyWithIOT(final String oneDdl, final UserObjectDao userObjectDao) {
@@ -99,6 +101,4 @@ public class DDLListFormatter {
         // arguments: indexName, indexOwner
         return userObjectDao.isIndexForIOT(matchDdl.group(2), matchDdl.group(1));
     }
-
 }
-
