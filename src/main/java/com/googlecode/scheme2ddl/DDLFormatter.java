@@ -270,12 +270,23 @@ public class DDLFormatter {
     }
 
     private static final Pattern checkAtSignInBeginingLinePattern = Pattern.compile("^[ \t]*@.*", Pattern.DOTALL);
-
     private boolean checkAtSignInNextLine(final String ddl, int positionBeginNextLine) {
         try {
             final String nextLines = ddl.substring(positionBeginNextLine);
             Matcher checkAtSignInBeginingLine = checkAtSignInBeginingLinePattern.matcher(nextLines);
             return checkAtSignInBeginingLine.matches();
+        } catch (IndexOutOfBoundsException e) {
+            return false;
+        }
+    }
+
+    private static final Pattern checkLanguageJavaNamePattern = Pattern.compile(".*[ \t\r\n]+LANGUAGE[ \t]+JAVA[ \t]+NAME[^\r\n]*[\r\n]*",
+                Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+    private static boolean checkLanguageJavaNameInLastLine(final String ddl, int currentStartLinePosition, int currentEndLinePosition) {
+        try {
+            final String line = ddl.substring(currentStartLinePosition, currentEndLinePosition);
+            Matcher checkLanguageJavaName = checkLanguageJavaNamePattern.matcher(line);
+            return checkLanguageJavaName.matches();
         } catch (IndexOutOfBoundsException e) {
             return false;
         }
@@ -293,9 +304,18 @@ public class DDLFormatter {
         int quoteAtLineCounter = 0;
         boolean isCommentArea = false;
         boolean isCommentToEol = false;
+        boolean isLanguageJavaNameArea = false;
 
         for (char character: ddl.toCharArray()) {
             position++;
+
+            // Ignore and skip area, like: ... LANGUAGE JAVA NAME 'some_foo_with_eols_characters' ...
+            if (isLanguageJavaNameArea) {
+                if (character == '\'') {
+                    isLanguageJavaNameArea = false;
+                }
+                continue;
+            }
 
             // Ignore and skip commented area, like: /* blablabla */
             if (isCommentArea) {
@@ -328,6 +348,11 @@ public class DDLFormatter {
 
             if (character == '\n') {
                 if (quoteAtLineCounter % 2 > 0) {
+                    if (checkLanguageJavaNameInLastLine(ddl, startLinePosition, position)) {
+                        isLanguageJavaNameArea = true;
+                        quoteAtLineCounter = 0;
+                        continue;
+                    }
                     final String eolChrs;
                     final String currentLine;
                     if (position > 1 && ddl.charAt(position-2) == '\r') {
@@ -341,12 +366,6 @@ public class DDLFormatter {
                     startLinePosition = position;
                     quoteAtLineCounter = 1;
                 } else {
-                    /*
-                     * Think, change and Uncomment then need split lines if them is greater than maxSqlplusCmdLineLength
-                     * This is need do in the 'splitBigLinesByNewline' method above (may be, or may be here).
-                     *... result += ddl.substring(startLinePosition, position);
-                     *... startLinePosition = position;
-                     */
                     quoteAtLineCounter = 0;
                 }
             } else if (character == '\'') {
