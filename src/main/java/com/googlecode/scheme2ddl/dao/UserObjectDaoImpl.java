@@ -238,7 +238,7 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                 ps = connection.prepareStatement("SELECT 'GRANT '||privilege||' ON \"'||table_schema||'\".\"'||table_name||'\" TO \"'||grantee||'\"' "
                         + "|| CASE WHEN hierarchy = 'YES' THEN ' WITH HIERARCHY OPTION' ELSE '' END "
                         + "|| CASE WHEN grantable = 'YES' THEN ' WITH GRANT OPTION;' ELSE ';' END ddl_string "
-                        + "FROM all_tab_privs WHERE grantee = ?");
+                        + "FROM all_tab_privs WHERE grantee = ? ORDER BY table_schema, table_name");
                 ps.setString(1, name);
 
                 try {
