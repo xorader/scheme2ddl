@@ -14,14 +14,11 @@ import java.util.List;
 public interface UserObjectDao {
 
     List<UserObject> findListForProccessing();
-
     List<UserObject> findPublicDbLinks();
-
     List<UserObject> findDmbsJobs();
-
     List<UserObject> addUser();
-
     List<UserObject> findTablespaces();
+    List<UserObject> addPublicGrants();
 
     String findPrimaryDDL(String type, String name);
 
@@ -34,6 +31,8 @@ public interface UserObjectDao {
     String generateUserDDL(String name);
 
     String generateTablespaceDDL(String name);
+
+    String generatePublicGrants();
 
     void exportDataTable(UserObject userObject, TableExportProperty tableProperty, FileNameConstructor fileNameConstructor, boolean isSortExportedDataTable, String sortingByColumnsRegexpList, String dataCharsetName);
 

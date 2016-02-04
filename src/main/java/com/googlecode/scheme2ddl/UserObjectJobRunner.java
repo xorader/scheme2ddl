@@ -20,7 +20,7 @@ public class UserObjectJobRunner {
     protected static final Log logger = LogFactory.getLog(UserObjectJobRunner.class);
     private JobLauncher launcher;
 
-    int start(ConfigurableApplicationContext context, boolean launchedByDBA, String outputPath, boolean processTablespaces) throws Exception {
+    int start(ConfigurableApplicationContext context, boolean launchedByDBA, String outputPath) throws Exception {
         try {
             context.getAutowireCapableBeanFactory().autowireBeanProperties(this,
                     AutowireCapableBeanFactory.AUTOWIRE_BY_TYPE, false);
@@ -33,24 +33,13 @@ public class UserObjectJobRunner {
 
             logger.info(String.format("Will try to process schema %s %s ", schemaList.size() > 1 ? "list" : "", schemaList));
 
-            boolean processSysOnlyTablespaces;
-            if (!processTablespaces || isStringListContains(schemaList, "sys")) {
-                processSysOnlyTablespaces = false;
-            } else {
-                processSysOnlyTablespaces = true;
-                schemaList.add("SYS");
-            }
+            schemaList.add("PUBLIC");   // for special objects like: TABLESPACES, PUBLIC DB LINKS, PUBLIC GRANTS, and others
 
             for (String schemaName : schemaList){
                 JobParametersBuilder parametersBuilder = new JobParametersBuilder();
                 parametersBuilder.addString("schemaName", schemaName);
                 parametersBuilder.addString("launchedByDBA", Boolean.toString(launchedByDBA));
                 parametersBuilder.addString("outputPath", outputPath);
-                if (processSysOnlyTablespaces && schemaName.equalsIgnoreCase("SYS")) {
-                    parametersBuilder.addString("processSysOnlyTablespaces", Boolean.toString(true));
-                } else {
-                    parametersBuilder.addString("processSysOnlyTablespaces", Boolean.toString(false));
-                }
                 JobParameters jobParameters = parametersBuilder.toJobParameters();
                 logger.trace(String.format("Start spring batch job with parameters %s", jobParameters));
                 JobExecution jobExecution = launcher.run(job, jobParameters);

@@ -25,10 +25,12 @@
     </util:list>
 
     <bean id="reader" class="com.googlecode.scheme2ddl.UserObjectReader" scope="step">
-        <property name="processPublicDbLinks" value="false"/>
+        <property name="processPublicDbLinks" value="true"/> <!-- export 'PUBLIC DATABASE LINK' objects (in PUBLIC schema directory) -->
         <property name="processDmbsJobs" value="true"/>
         <!-- The "processUserAndPermissions" workes only for sysdba users -->
         <property name="processUserAndPermissions" value="true"/>
+        <property name="processTablespaces" value="true"/>  <!-- export 'TABLESPACE' objects (in PUBLIC schema directory) -->
+        <property name="processPublicDbmsGrants" value="true"/>  <!-- export PUBLIC grants to "DBMS*" objects (in PUBLIC/USERS/PUBLIC_GRANTS.sql file) -->
     </bean>
 
     <bean id="writer" class="com.googlecode.scheme2ddl.UserObjectWriter">
@@ -51,7 +53,6 @@
         <entry key="isSortExportedDataTable" value="true"/>
         <entry key="sortingByColumnsRegexpList" value="^(id|id_.+|.+_id|uniq_.+)$"/>
         <entry key="dataCharsetName" value="UTF-8"/>    <!-- Require for calculate lines length. Default value: UTF-8 -->
-        <entry key="processTablespaces" value="true"/>  <!-- force export 'TABLESPACE' objects (for sys connection - to SYS schema directory) -->
         <entry key="fixTriggerWithoutObjectnameOwner" value="true"/>
         <entry key="fixJobnameWithoutOwner" value="true"/>
     </util:map>

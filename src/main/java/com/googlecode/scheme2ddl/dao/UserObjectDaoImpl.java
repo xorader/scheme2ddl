@@ -144,6 +144,21 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         }
     }
 
+    public List<UserObject> addPublicGrants() {
+        UserObject userObject = new UserObject();
+        List<UserObject> list = new ArrayList<UserObject>();
+
+        if (!isLaunchedByDBA) {
+            return list;
+        }
+
+        userObject.setName("PUBLIC_GRANTS");
+        userObject.setType("USER");
+        userObject.setSchema("PUBLIC");
+        list.add(userObject);
+        return list;
+    }
+
     public String generateTablespaceDDL(final String name) {
         return executeDbmsMetadataGetDdl("select dbms_metadata.get_ddl(?, ?) from dual", "TABLESPACE", name, null);
     }
@@ -218,10 +233,72 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                     ps.close();
                 }
 
+                /* Generate -- User Privileges to system objects */
+                result += "\n\n-- User Privileges to system objects\n";
+                ps = connection.prepareStatement("SELECT 'GRANT '||privilege||' ON \"'||table_schema||'\".\"'||table_name||'\" TO \"'||grantee||'\"' "
+                        + "|| CASE WHEN hierarchy = 'YES' THEN ' WITH HIERARCHY OPTION' ELSE '' END "
+                        + "|| CASE WHEN grantable = 'YES' THEN ' WITH GRANT OPTION;' ELSE ';' END ddl_string "
+                        + "FROM all_tab_privs WHERE grantee = ?");
+                ps.setString(1, name);
+
+                try {
+                    rs = ps.executeQuery();
+                } catch (SQLException e) {
+                    log.trace(String.format("Error during create User Privileges to system objects for: %s", name));
+                    return result;
+                }
+
+                try {
+                    while (rs.next()) {
+                        result += rs.getString(1).trim();
+                    }
+                } finally {
+                    rs.close();
+                    ps.close();
+                }
+
                 return result;
             }
         });
-     }
+    }
+
+    public String generatePublicGrants() {
+        return (String) getJdbcTemplate().execute(new ConnectionCallback() {
+            public String doInConnection(Connection connection) throws SQLException, DataAccessException {
+                String result = "-- PUBLIC Privileges to system objects\n";
+                String prevSchema = "";
+
+                PreparedStatement ps = connection.prepareStatement("SELECT table_schema, 'GRANT '||privilege||' ON \"'||table_schema||'\".\"'||table_name||'\" TO \"PUBLIC\"' "
+                    + "|| CASE WHEN hierarchy = 'YES' THEN ' WITH HIERARCHY OPTION' ELSE '' END "
+                    + "|| CASE WHEN grantable = 'YES' THEN ' WITH GRANT OPTION;' ELSE ';' END ddl_string "
+                    + "FROM all_tab_privs WHERE grantee = 'PUBLIC' AND table_schema IN ('SYS', 'EXFSYS', 'OLAPSYS', 'XDB') "
+                        + "AND TABLE_NAME like 'DBMS%' ORDER BY table_schema, table_name");
+                ResultSet rs;
+
+                try {
+                    rs = ps.executeQuery();
+                } catch (SQLException e) {
+                    log.trace("Error during create PUBLIC Privileges to system objects.");
+                    return result;
+                }
+
+                try {
+                    while (rs.next()) {
+                        final String curSchemaName = rs.getString(1);
+                        if (!prevSchema.equals(curSchemaName)) {
+                            result += "\n";
+                        }
+                        result += rs.getString(2).trim() + "\n";
+                        prevSchema = curSchemaName;
+                    }
+                } finally {
+                    rs.close();
+                    ps.close();
+                }
+                return result;
+            }
+        });
+    }
 
     private String executeDbmsMetadataGetDdl(final String query, final String type, final String name, final String schema) {
         return (String) getJdbcTemplate().execute(new ConnectionCallback() {

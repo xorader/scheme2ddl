@@ -31,13 +31,11 @@ public class UserObjectReader implements ItemReader<UserObject> {
     private boolean processPublicDbLinks = false;
     private boolean processDmbsJobs = false;
     private boolean processUserAndPermissions = false;
-    private boolean processSysOnlyTablespaces = false;
+    private boolean processTablespaces = false;
+    private boolean processPublicDbmsGrants = false;
 
     @Value("#{jobParameters['schemaName']}")
     private String schemaName;
-    @Value("#{jobParameters['processSysOnlyTablespaces']}")
-    private boolean isProcessSysOnlyTablespaces = false;
-
 
     public synchronized UserObject read() throws Exception, UnexpectedInputException, ParseException, NonTransientResourceException {
         if (list == null) {
@@ -54,18 +52,22 @@ public class UserObjectReader implements ItemReader<UserObject> {
         log.info(String.format("Start getting of user object list in schema %s for processing", schemaName));
         list = new ArrayList<UserObject>();
 
-        if (schemaName.equalsIgnoreCase("SYS")) {
-            list.addAll(userObjectDao.findTablespaces());
-
-            if (isProcessSysOnlyTablespaces) {
-                return;
+        if (schemaName.equals("PUBLIC")) {
+            if (processTablespaces) {
+                list.addAll(userObjectDao.findTablespaces());
             }
+            if (processPublicDbmsGrants) {
+                list.addAll(userObjectDao.addPublicGrants());
+            }
+            if (processPublicDbLinks) {
+                list.addAll(userObjectDao.findPublicDbLinks());
+            }
+
+            return;
         }
 
         list.addAll(userObjectDao.findListForProccessing());
-        if (processPublicDbLinks) {
-            list.addAll(userObjectDao.findPublicDbLinks());
-        }
+
         if (processDmbsJobs) {
             list.addAll(userObjectDao.findDmbsJobs());
         }
@@ -90,12 +92,16 @@ public class UserObjectReader implements ItemReader<UserObject> {
         this.schemaName = schemaName;
     }
 
-    public void setProcessSysOnlyTablespaces(boolean processSysOnlyTablespaces) {
-        this.isProcessSysOnlyTablespaces = processSysOnlyTablespaces;
-    }
-
     public void setProcessUserAndPermissions(boolean processUserAndPermissions) {
         this.processUserAndPermissions = processUserAndPermissions;
+    }
+
+    public void setProcessTablespaces(boolean processTablespaces) {
+        this.processTablespaces = processTablespaces;
+    }
+
+    public void setProcessPublicDbmsGrants(boolean processPublicDbmsGrants) {
+        this.processPublicDbmsGrants = processPublicDbmsGrants;
     }
 
     @Deprecated
