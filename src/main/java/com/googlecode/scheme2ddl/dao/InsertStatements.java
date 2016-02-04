@@ -453,6 +453,16 @@ public class InsertStatements {
                 resultString += formatColumnValue(")");
                 break;
 
+            case java.sql.Types.VARBINARY:      // Oracle RAW type
+                final String hexTextColumnValue = tableCell.stringValue();
+                if (hexTextColumnValue != null) {
+                    resultString += formatTextColumnValue(hexTextColumnValue);
+                }
+                else {
+                    resultString += formatColumnValue("null");
+                }
+                break;
+
             default:
                 String defaultColumnValue;
                 if (!isPresentUnknownType) {
