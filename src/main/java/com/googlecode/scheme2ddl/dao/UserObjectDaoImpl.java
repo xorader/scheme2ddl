@@ -15,6 +15,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.googlecode.scheme2ddl.TableExportProperty;
 import com.googlecode.scheme2ddl.dao.InsertStatements;
@@ -163,7 +164,20 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         return executeDbmsMetadataGetDdl("select dbms_metadata.get_ddl(?, ?) from dual", "TABLESPACE", name, null);
     }
 
-    public String generateUserDDL(final String name) {
+    private boolean checkGrantInExcludeListObjects(final String fullObjectName, final Set<String> excludeGrants) {
+        if (excludeGrants == null) {
+            return false;
+        }
+        for (String excludeElementPattern : excludeGrants) {
+            excludeElementPattern = excludeElementPattern.replace("*", ".*").toLowerCase();
+            if (fullObjectName.toLowerCase().matches(excludeElementPattern)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public String generateUserDDL(final String name, final Set<String> excludeGrants) {
         return (String) getJdbcTemplate().execute(new ConnectionCallback() {
             public String doInConnection(Connection connection) throws SQLException, DataAccessException {
                 String result = "-- User Creation\n";
@@ -234,10 +248,11 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                 }
 
                 /* Generate -- User Privileges to system objects */
-                result += "\n\n-- User Privileges to system objects\n";
+                result += "\n\n-- User Privileges to system objects\n\n";
                 ps = connection.prepareStatement("SELECT 'GRANT '||privilege||' ON \"'||table_schema||'\".\"'||table_name||'\" TO \"'||grantee||'\"' "
                         + "|| CASE WHEN hierarchy = 'YES' THEN ' WITH HIERARCHY OPTION' ELSE '' END "
                         + "|| CASE WHEN grantable = 'YES' THEN ' WITH GRANT OPTION;' ELSE ';' END ddl_string "
+                        + ", table_schema, table_name "
                         + "FROM all_tab_privs WHERE grantee = ? ORDER BY table_schema, table_name");
                 ps.setString(1, name);
 
@@ -250,7 +265,11 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
 
                 try {
                     while (rs.next()) {
-                        result += rs.getString(1).trim();
+                        final String fullObjectName = rs.getString(2) + "." + rs.getString(3);
+                        if (checkGrantInExcludeListObjects(fullObjectName, excludeGrants)) {
+                            continue;
+                        }
+                        result += "  " + rs.getString(1).trim() + "\n";
                     }
                 } finally {
                     rs.close();
@@ -262,15 +281,16 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         });
     }
 
-    public String generatePublicGrants() {
+    public String generatePublicGrants(final Set<String> excludeGrants) {
         return (String) getJdbcTemplate().execute(new ConnectionCallback() {
             public String doInConnection(Connection connection) throws SQLException, DataAccessException {
                 String result = "-- PUBLIC Privileges to system objects\n";
                 String prevSchema = "";
 
-                PreparedStatement ps = connection.prepareStatement("SELECT table_schema, 'GRANT '||privilege||' ON \"'||table_schema||'\".\"'||table_name||'\" TO \"PUBLIC\"' "
+                PreparedStatement ps = connection.prepareStatement("SELECT 'GRANT '||privilege||' ON \"'||table_schema||'\".\"'||table_name||'\" TO \"PUBLIC\"' "
                     + "|| CASE WHEN hierarchy = 'YES' THEN ' WITH HIERARCHY OPTION' ELSE '' END "
                     + "|| CASE WHEN grantable = 'YES' THEN ' WITH GRANT OPTION;' ELSE ';' END ddl_string "
+                    + ", table_schema, table_name "
                     + "FROM all_tab_privs WHERE grantee = 'PUBLIC' AND table_schema IN ('SYS', 'EXFSYS', 'OLAPSYS', 'XDB') "
                         + "AND TABLE_NAME like 'DBMS%' ORDER BY table_schema, table_name");
                 ResultSet rs;
@@ -284,11 +304,15 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
 
                 try {
                     while (rs.next()) {
-                        final String curSchemaName = rs.getString(1);
+                        final String curSchemaName = rs.getString(2);
+                        final String fullObjectName = curSchemaName + "." + rs.getString(3);
+                        if (checkGrantInExcludeListObjects(fullObjectName, excludeGrants)) {
+                            continue;
+                        }
                         if (!prevSchema.equals(curSchemaName)) {
                             result += "\n";
                         }
-                        result += rs.getString(2).trim() + "\n";
+                        result += rs.getString(1).trim() + "\n";
                         prevSchema = curSchemaName;
                     }
                 } finally {

@@ -323,6 +323,16 @@
                 <value>*\.DR\$*\$?</value>  <!-- don't export tables, which auto generated for Indexes with INDEXTYPE IS "CTXSYS"."CONTEXT" (and like others) -->
             </set>
         </entry>
+        <entry key="GRANTS_OBJECTS">    <!-- Exclude list of objects for generating GRANT's ddl Privileges to system objects -->
+            <set>
+                <value>SYS.XML_DIR</value>
+                <value>SYS.VW_DBA_AUDIT_TRAIL</value>
+                <value>SYS.E2SN_UDUMP</value>
+                <value>SYS.DBMSHP_FUNCTION_INFO</value>
+                <value>SYS.DBMSHP_PARENT_CHILD_INFO</value>
+                <value>SYS.DBMSHP_RUNS</value>
+            </set>
+        </entry>
     </util:map>
 
 

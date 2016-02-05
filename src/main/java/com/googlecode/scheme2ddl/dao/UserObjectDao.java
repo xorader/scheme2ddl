@@ -6,6 +6,7 @@ import com.googlecode.scheme2ddl.FileNameConstructor;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 /**
  * @author A_Reshetnikov
@@ -28,11 +29,11 @@ public interface UserObjectDao {
 
     String findDbmsJobDDL(String name);
 
-    String generateUserDDL(String name);
+    String generateUserDDL(String name, Set<String> excludeGrants);
 
     String generateTablespaceDDL(String name);
 
-    String generatePublicGrants();
+    String generatePublicGrants(Set<String> excludeGrants);
 
     void exportDataTable(UserObject userObject, TableExportProperty tableProperty, FileNameConstructor fileNameConstructor, boolean isSortExportedDataTable, String sortingByColumnsRegexpList, String dataCharsetName);
 

@@ -57,7 +57,6 @@ public class InsertStatements {
     {
         ResultSet rs = meta.getPrimaryKeys(null, schema_name, tableName);
         if (rs.next()) {
-            //log.info(String.format("== getTablePrimaryKeyColumn %s.%s: %s", schema_name, tableName, rs.getString("COLUMN_NAME")));
             return rs.getString("COLUMN_NAME");
         }
         return null;
@@ -72,6 +71,7 @@ public class InsertStatements {
                 return true;
             }
         }
+        rs.close();
         return false;
     }
 
@@ -79,9 +79,9 @@ public class InsertStatements {
         throws SQLException
     {
         ResultSet rs = meta.getColumns(null, schema_name, tableName, columnName);
+        boolean result = false;
         while(rs.next()) {
             int column_type = rs.getInt("DATA_TYPE");
-            //log.info(String.format("== isSortableTypeColumn %s.%s.%s: Type: '%s'. Data type: '%d'. SQL_DATA_TYPE: '%d'.", schema_name, tableName, columnName, rs.getString("TYPE_NAME"), column_type, rs.getInt("SQL_DATA_TYPE")));
             /*
              * It's a little hack, place. We can not order by not internal types, and types like BLOB, CLOB, ARRAY and OTHERs. This types has a number higher then 1000 (magic number).
              * java.sql.Types can see here:
@@ -91,8 +91,10 @@ public class InsertStatements {
             if (column_type >= 1000) {
                 return false;
             }
+            result = true;
         }
-        return true;
+        rs.close();
+        return result;
     }
 
     private static String getTableUniqueIdxColumn(final DatabaseMetaData meta, final String schema_name, final String tableName, final boolean onlyNotNull, final String sortingByColumnsRegexpList)
@@ -110,15 +112,12 @@ public class InsertStatements {
                 continue;
             }
 
-            //log.info(String.format("== getTableUniqueIdxColumn %s.%s: %s (%s | %s | matched by: %s)", schema_name, tableName, columnName, indexName, isNonUnique ? "true" : "false", sortingByColumnsRegexpList));
             if (sortingByColumnsRegexpList != null && !sortingByColumnsRegexpList.equals("") && columnName.toLowerCase().matches(sortingByColumnsRegexpList)) {
                 return columnName;
             }
             last_result = columnName;
         }
-
-        //if (last_result != null)
-        //    log.info(String.format("== getTableUniqueIdxColumn %s.%s: %s", schema_name, tableName, last_result));
+        rs.close();
         return last_result;
     }
 
@@ -135,15 +134,12 @@ public class InsertStatements {
             if (!isSortableTypeColumn(meta, schema_name, tableName, columnName)) {
                 continue;
             }
-            //log.info(String.format("== getTableAutoIdentifyColumn %s.%s.%s (match by %s). Type: '%s'. Data type: '%d'.", schema_name, tableName, columnName, sortingByColumnsRegexpList, rs.getString("TYPE_NAME"), rs.getInt("DATA_TYPE")));
             if (sortingByColumnsRegexpList != null && !sortingByColumnsRegexpList.equals("") && columnName.toLowerCase().matches(sortingByColumnsRegexpList)) {
                 return columnName;
             }
             last_result = columnName;
         }
-        //rs.close();
-        //if (last_result != null)
-        //    log.info(String.format("== getTableAutoIdentifyColumn %s.%s: %s", schema_name, tableName, last_result));
+        rs.close();
         return last_result;
     }
 
@@ -160,10 +156,10 @@ public class InsertStatements {
                 continue;
             }
             if (columnName.toLowerCase().matches(sortingByColumnsRegexpList)) {
-                //log.info(String.format("== getTableNameIdentifyColumn %s.%s: %s", schema_name, tableName, columnName));
                 return columnName;
             }
         }
+        rs.close();
         return null;
     }
 
@@ -176,6 +172,7 @@ public class InsertStatements {
             if (columnType == java.sql.Types.CLOB || columnType == java.sql.Types.BLOB || columnType == oracle.xdb.XMLType._SQL_TYPECODE || columnType == java.sql.Types.SQLXML)
                 return true;
         }
+        rs.close();
         return false;
     }
 
@@ -262,7 +259,7 @@ public class InsertStatements {
     {
         if (depth > 5) {
             // small protection of infinity recursive calls
-            log.info(String.format("   !!!> Detect max depth for formatDatumToString() for '%s' table and the '%s' column", tableName, columnName));
+            log.info(String.format("   !!!Error: Detect max depth for formatDatumToString() for '%s' table and the '%s' column", tableName, columnName));
             return formatColumnValue("null");
         }
         String resultString = "";
@@ -292,9 +289,18 @@ public class InsertStatements {
                     resultString += formatColumnValue("null");
                 }
                 else {
-                    resultString += formatColumnValue("TO_DATE('"
-                              + dateFormat.format(d)
-                              + "', 'YYYY/MM/DD HH24:MI:SS')");
+                    final String dateStr;
+                    try {
+                        dateStr = dateFormat.format(d);
+                    } catch (ArrayIndexOutOfBoundsException e) {
+                        resultString += formatColumnValue("null");
+                        log.info("   !!!Error: ArrayIndexOutOfBoundsException (TODO why?): during execute dateFormat.format(d) for " + fullTableName + " column: " + columnName);
+                        log.info("   Error message: " + e.getMessage());
+                        //throw new Exception("Can't execute dateFormat.format(d) for " + fullTableName + " column: " + columnName);
+                        //throw new SQLException(e);
+                        break;
+                    }
+                    resultString += formatColumnValue("TO_DATE('" + dateStr + "', 'YYYY/MM/DD HH24:MI:SS')");
                 }
                 break;
 
@@ -466,7 +472,7 @@ public class InsertStatements {
             default:
                 String defaultColumnValue;
                 if (!isPresentUnknownType) {
-                    log.info(String.format("    Warning!!! Try to take data from the '%s' table from the '%s' column with unknown column type: '%s' [%d]", fullTableName, columnName, typeName, type));
+                    log.info(String.format("   !!!Warning: Try to take data from the '%s' table from the '%s' column with unknown column type: '%s' [%d]", fullTableName, columnName, typeName, type));
                     isPresentUnknownType = true;
                 }
 
@@ -536,7 +542,7 @@ public class InsertStatements {
             }
             if (primaryKeyColumn == null) {
                 // primary key was not found. CLOB/BLOB/XMLTYPE columns can not be exported
-                log.info(String.format("   ---> Can not save blob/clob/xml column(s) of the '%s' table, because can't find Primary Key for this table.", fullTableName));
+                log.info(String.format("   !!!Warning: Can not save blob/clob/xml column(s) of the '%s' table, because can't find Primary Key for this table.", fullTableName));
             } else {
                 // Create the 'primary_key' file with primary key column name for this table (for BLOB/CLOB/XMLTYPE columns identity).
                 String primaryKeyFileName = FilenameUtils.separatorsToSystem(outputPath + "/"
@@ -556,6 +562,7 @@ public class InsertStatements {
         }
         if (isSortExportedDataTable) {
             String bestRowIdentifier = tableProperty.orderBy;    // column name, using for sorting
+
             if (bestRowIdentifier == null) {
                 if (!isPrimaryKeyColumnSearched) {
                     bestRowIdentifier = getTablePrimaryKeyColumn(conn_meta, schema_name, tableName);
@@ -579,7 +586,14 @@ public class InsertStatements {
         log.info(String.format("Export data table %s to file %s", fullTableName.toLowerCase(), file.getAbsolutePath()));
 
         Statement stmt = conn.createStatement();
-        OracleResultSet rs = (OracleResultSet) stmt.executeQuery(query_string);
+        OracleResultSet rs;
+        try {
+            rs = (OracleResultSet) stmt.executeQuery(query_string);
+        } catch (SQLException e) {
+            log.info("   !!!Error during SQL execute. Check xml-config for errors in the 'includesDataTables -> orderBy' properties for the '"+fullTableName+"' table. Can not execute:  " + query_string);
+            log.info("   Error message: " + e.getMessage());
+            throw new SQLException(e);
+        }
         ResultSetMetaData rsmd = rs.getMetaData();
         int numColumns = rsmd.getColumnCount();
         int[] columnTypes = new int[numColumns];

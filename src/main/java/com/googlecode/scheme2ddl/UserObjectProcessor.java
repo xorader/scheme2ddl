@@ -165,9 +165,9 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
             return ddlFormatter.formatDDL(userObjectDao.findDDLInPublicScheme(map2TypeForDBMS(userObject.getType()), userObject.getName()));
         } else if (userObject.getType().equals("USER")) {
             if (userObject.getSchema().equals("PUBLIC")) {
-                return userObjectDao.generatePublicGrants();
+                return userObjectDao.generatePublicGrants(excludes.get("GRANTS_OBJECTS"));
             }
-            return ddlFormatter.formatDDL(userObjectDao.generateUserDDL(userObject.getName()));
+            return ddlFormatter.formatDDL(userObjectDao.generateUserDDL(userObject.getName(), excludes.get("GRANTS_OBJECTS")));
         } else if (userObject.getType().equals("TABLESPACE")) {
             return ddlFormatter.formatDDL(userObjectDao.generateTablespaceDDL(userObject.getName()));
         }

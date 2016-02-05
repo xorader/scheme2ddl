@@ -88,6 +88,7 @@ public class DDLFormatter {
         int currentWordBeginPointer;
         int textLength;
         boolean quoteSymbolHasBegun;
+        char currentQuoteSymbol;
         boolean isWordContentEol;
 
         public WordsList(String text) {
@@ -95,6 +96,7 @@ public class DDLFormatter {
             this.currentWordBeginPointer = 0;
             this.textLength = text.length();
             this.quoteSymbolHasBegun = false;
+            this.currentQuoteSymbol = '\0';
         }
 
         private boolean isWordEndCharacter(final char symbol) {
@@ -122,12 +124,13 @@ public class DDLFormatter {
 
             int endWordPosition;
 
-            if (quoteSymbolHasBegun || text.charAt(currentWordBeginPointer) == '\'')
+            if (quoteSymbolHasBegun || text.charAt(currentWordBeginPointer) == '\'' || text.charAt(currentWordBeginPointer) == '"')
             {  // Do not split a quoted word(s).
 
                 if (!quoteSymbolHasBegun) {
-                    // We are start searching for a closing quote: '
+                    // We are start searching for a closing quote: ' or "
                     quoteSymbolHasBegun = true;
+                    currentQuoteSymbol = text.charAt(currentWordBeginPointer);
                     endWordPosition = currentWordBeginPointer+1;
                 } else {
                     // continued on the next line quote
@@ -140,13 +143,15 @@ public class DDLFormatter {
                     }
 
                     final char currentSymbol = text.charAt(endWordPosition);
-                    if (currentSymbol == '\'')
+                    if (currentSymbol == currentQuoteSymbol)
                     {
                         endWordPosition++;
-                        if (endWordPosition != textLength && text.charAt(endWordPosition) == '\'') {
+                        if (currentQuoteSymbol == '\'') {
                             // skip quoting quote characters (double quote): ''
-                            endWordPosition++;
-                            continue;
+                            if (endWordPosition != textLength && text.charAt(endWordPosition) == '\'') {
+                                endWordPosition++;
+                                continue;
+                            }
                         }
                         quoteSymbolHasBegun = false;
                         break;
