@@ -573,4 +573,17 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         }
         return false;
     }
+
+    public boolean isObjectExist(final String objectName, final String objectOwner) {
+        final String sqlQueryCheckExistObject = "SELECT 1 FROM all_objects WHERE object_name = ? AND owner = ?";
+        try {
+            final int resultCounter = getJdbcTemplate().queryForInt(sqlQueryCheckExistObject, objectName, objectOwner);
+            if (resultCounter > 0) {
+                return true;
+            }
+        } catch (DataAccessException e) {
+            return false;
+        }
+        return false;
+    }
 }

@@ -43,6 +43,8 @@ public interface UserObjectDao {
 
     boolean isIndexForIOT(String indexName, String indexOwner);
 
+    boolean isObjectExist(String objectName, String objectOwner);
+
     boolean isConnectionAvailable();
 
 }

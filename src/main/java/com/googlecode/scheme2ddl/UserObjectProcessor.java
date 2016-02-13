@@ -37,6 +37,7 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
     private boolean replaceSequenceValues = false;
     private boolean fixTriggerWithoutObjectnameOwner = false;
     private boolean fixJobnameWithoutOwner = false;
+    private boolean fixCreateDBLinksOwner = false;
     private String sortingByColumnsRegexpList = null;
     private String dataCharsetName = null;
 
@@ -178,6 +179,8 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
             res = DDLFormatter.checkAndFixTriggerWithoutObjectnameOwner(res);
         } else if (userObject.getType().equals("JOB") && fixJobnameWithoutOwner) {
             res = DDLFormatter.checkAndFixJobnameWithoutOwner(res, userObject.getSchema());
+        } else if (userObject.getType().equals("DATABASE LINK") && !userObject.getSchema().equals("SYS") && fixCreateDBLinksOwner) {
+            res = DDLFormatter.fixCreateDBLink(res, userObject.getSchema(), userObjectDao);
         }
 
         Set<String> dependedTypes = dependencies.get(userObject.getType());
@@ -316,6 +319,11 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
         {
             this.fixJobnameWithoutOwner = true;
         }
+        if (settingsUserObjectProcessor.get("fixCreateDBLinksOwner") != null
+                && settingsUserObjectProcessor.get("fixCreateDBLinksOwner"))
+        {
+            this.fixCreateDBLinksOwner = true;
+        }
     }
 
     public void setSortingByColumnsRegexpList(String list) {
@@ -336,5 +344,9 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
 
     public void setFixJobnameWithoutOwner(boolean fixJobnameWithoutOwner) {
         this.fixJobnameWithoutOwner = fixJobnameWithoutOwner;
+    }
+
+    public void setFixCreateDBLinksOwner(boolean fixCreateDBLinksOwner) {
+        this.fixCreateDBLinksOwner = fixCreateDBLinksOwner;
     }
 }

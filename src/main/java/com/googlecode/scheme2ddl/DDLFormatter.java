@@ -9,6 +9,8 @@ import java.nio.charset.CharsetEncoder;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.CharacterCodingException;
 
+import com.googlecode.scheme2ddl.dao.UserObjectDao;
+
 /**
  * @author A_Reshetnikov
  * @author A_Molchanov
@@ -431,5 +433,37 @@ public class DDLFormatter {
         }
 
         return matchDdl.group("part1") + "\"" + schemaName + "\"." + matchDdl.group("jobname") + matchDdl.group("part2");
+    }
+
+    private static String tmp_procedure_name_prefix = "TMP_DOIT_20160212_";
+
+    public static String fixCreateDBLink(final String ddl, final String schemaName, final UserObjectDao userObjectDao) {
+        String resultDdl =
+              "-- Special way for CREATE DATABASE LINK objects with correct OWNER (for current schema)\n"
+            + "-- This is need because simple 'CREATE DATABASE LINK ...' query creates db_link with owner which executes this query ('SYS' for example),\n"
+            + "--   but we need create with 'user_name' owner!\n"
+            + "-- So, this is hack place (but it works good!).\n\n";
+
+        int counter = 0;
+        while (userObjectDao.isObjectExist(tmp_procedure_name_prefix + counter, schemaName)) {
+            counter++;
+        }
+        final String tmpProcedureName = tmp_procedure_name_prefix + counter;
+
+        resultDdl += "CREATE PROCEDURE "+schemaName+"."+tmpProcedureName+"\n"
+            + "IS\n"
+            + "BEGIN\n"
+            + "EXECUTE IMMEDIATE '"
+            + ddl.replace("'", "''").replace(";", "") + "\n"
+            + "';\n"
+            + "END;\n"
+            + "/\n"
+            + "BEGIN\n"
+            + schemaName+"."+tmpProcedureName+";\n"
+            + "END;\n"
+            + "/\n"
+            + "DROP PROCEDURE "+schemaName+"."+tmpProcedureName+";\n";
+
+        return resultDdl;
     }
 }
