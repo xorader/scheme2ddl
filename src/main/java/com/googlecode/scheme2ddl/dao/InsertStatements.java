@@ -263,7 +263,6 @@ public class InsertStatements {
             return formatColumnValue("null");
         }
         String resultString = "";
-        Date d = null;
         /*
          * For property get String values by 'tableCell.stringValue()' (and others) requires load the 'orai18n.jar' (into class paths)!
          */
@@ -282,25 +281,50 @@ public class InsertStatements {
                 break;
 
             case java.sql.Types.DATE:
-                d = tableCell.dateValue();
+                //log.info("   qqq DATE type for the '"+fullTableName+"' table with column: " + columnName + "["+counterRow+"]. String value: " + tableCell.stringValue() + ". DATE value: " + (tableCell.dateValue() == null ? "NULL!!!" : tableCell.dateValue().toString()) + ". TIME value: " + tableCell.timeValue().toString());
+
+                // Also, we can get dateStr value by the following code:
+                //   import java.util.TimeZone;
+                //   ...
+                //   Date fullDate = new Date(tableCell.dateValue().getTime() + tableCell.timeValue().getTime() + TimeZone.getDefault().getRawOffset());
+                //   resultString += formatColumnValue("TO_DATE('" + dateFormat.format(fullDate) + "', 'YYYY/MM/DD HH24:MI:SS')");
+                //
+                // But you must update timezone data for every Java installation (JDK/JRE) !!!
+                // For example without update, the 'TimeZone.getDefault()' function for 'Europe/Moscow' TZ returns equivalent 'UTC+4'
+                //      value - TimeZone.getTimeZone("GMT+4")  (currect returning must be - 'GMT+3').
+                //
+                // Update instruction here: http://www.oracle.com/technetwork/java/javase/tzupdater-readme-136440.html
+
+                // the following code more short. And updating timezone data for Java not require:
+                final String dateStr = tableCell.stringValue();
+                if (dateStr == null) {
+                    resultString += formatColumnValue("null");
+                } else {
+                    resultString += formatColumnValue("TO_DATE('" + dateStr + "', 'YYYY-MM-DD HH24:MI:SS')");
+                }
+
+                break;
+
             case java.sql.Types.TIME:
-                if (d == null) d = tableCell.timeValue();
-                if (d == null) {
+                log.info(String.format("   !!!WARNING: Unknown for Oracle TIME type column '%s' for '%s' table.", columnName, tableName));
+
+                Time time = tableCell.timeValue();
+                if (time == null) {
                     resultString += formatColumnValue("null");
                 }
                 else {
-                    final String dateStr;
+                    final String timeStr;
                     try {
-                        dateStr = dateFormat.format(d);
+                        timeStr = dateFormat.format(new Date(time.getTime()));  // require '+ TimeZone.getDefault().getRawOffset()' ?
                     } catch (ArrayIndexOutOfBoundsException e) {
                         resultString += formatColumnValue("null");
-                        log.info("   !!!Error: ArrayIndexOutOfBoundsException (TODO why?): during execute dateFormat.format(d) for " + fullTableName + " column: " + columnName);
+                        log.info("   !!!Error: ArrayIndexOutOfBoundsException (TODO why?): during execute dateFormat.format(new Date(time.getTime())) for " + fullTableName + " column: " + columnName);
                         log.info("   Error message: " + e.getMessage());
                         //throw new Exception("Can't execute dateFormat.format(d) for " + fullTableName + " column: " + columnName);
                         //throw new SQLException(e);
                         break;
                     }
-                    resultString += formatColumnValue("TO_DATE('" + dateStr + "', 'YYYY/MM/DD HH24:MI:SS')");
+                    resultString += formatColumnValue("TO_DATE('" + timeStr + "', 'YYYY/MM/DD HH24:MI:SS')");
                 }
                 break;
 
