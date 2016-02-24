@@ -9,21 +9,23 @@
 
 
     <bean id="dataSource" class="oracle.jdbc.pool.OracleDataSource">
-        <property name="URL" value="jdbc:oracle:thin:@MyOracleHost:1521:MyDB"/>
+        <!-- You may create the "/etc/oracle/tnsnames.ora" file with 'SQL_TEST_HOST' net service name for test by 'make jar-test' -->
+        <!-- More info about tnsnames.ora look at http://docs.oracle.com/cd/B28359_01/network.111/b28317/tnsnames.htm -->
+        <property name="URL" value="jdbc:oracle:thin:@SQL_TEST_HOST"/> <!-- other example URL value: "jdbc:oracle:thin:@MyOracleHost:1521:MyDB" -->
         <!-- You can choose a DBA user. For example: value="sys as sysdba" -->
-        <property name="user" value="scott"/>
-        <property name="password" value="tiger"/>
+        <property name="user" value="SCOTT"/>
+        <property name="password" value="TIGER"/>
         <property name="connectionCachingEnabled" value="true"/>
     </bean>
 
     <!-- list of schema for processing, used only if oracle user connected as sysdba-->
     <util:list id="schemaList">
-        <!--<value>SCOTT</value>-->
+        <value>SCOTT</value>
         <!--<value>HR</value>-->
     </util:list>
 
     <bean id="reader" class="com.googlecode.scheme2ddl.UserObjectReader" scope="step">
-        <property name="processPublicDbLinks" value="true"/>
+        <property name="processPublicDbLinks" value="true"/> <!-- export 'PUBLIC DATABASE LINK' objects (in PUBLIC schema directory) -->
         <property name="processDmbsJobs" value="true"/>
         <!-- The "processUserAndPermissions" workes only for sysdba users -->
         <property name="processUserAndPermissions" value="true"/>
@@ -205,16 +207,17 @@
             -1 - do not export the whole table data
             >0 - limit exporting table rows by this value
          The "where" setting used for "WHERE" argument for matched tables.
+         The "orderBy" setting used for "ORDER BY" argument for matched tables.
     -->
     <util:map id="includesDataTables">
-        <entry key="SCOTT.TAB2"><util:properties><prop key="maxRowsExport">3</prop></util:properties></entry>
-        <entry key="SCOTT.TAB3"><util:properties><prop key="where">lower(name) like '%у%'</prop></util:properties></entry> <!-- used "WHERE" arguments for this tables -->
-        <entry key="*TAB1"><util:properties/></entry>
+        <entry key="SCOTT.TAB2"><util:properties><prop key="maxRowsExport">3</prop><prop key="where">LENGTH(column1) != 4</prop></util:properties></entry>   <!-- The "maxRowsExport" setting limits number of rows  -->
+        <entry key="SCOTT.TAB3"><util:properties><prop key="where">lower(name) like '%у%'</prop></util:properties></entry> <!-- used "WHERE" arguments for this table(s) -->
+        <entry key="SCOTT.SALGRADE"><util:properties><prop key="orderBy">grade DESC</prop></util:properties></entry> <!-- used "ORDER BY" arguments for this table(s). The 'isSortExportedDataTable' parameter in the 'settingsUserObjectProcessor' map must be true for working "ORDER BY". -->
     </util:map>
 
     <!-- Below tables data will exlude from export processing -->
     <util:list id="excludesDataTables">
-        <value>TAB3</value>
+        <value>SCOTT.TAB8_EXCLUDED</value>
         <value>SCOTT.TAB2</value>   <!-- SCOTT.TAB2 dont excludes, because contains in includesDataTables -->
     </util:list>
 
@@ -249,13 +252,15 @@
         <!--For removing system types http://www.sql.ru/forum/actualthread.aspx?bid=3&tid=542661&hl=-->
         <entry key="TYPE">
             <set>
-                <value>SYSTP*</value>
                 <value>*==</value>
                 <!--a pipelined function that returns a PL/SQL collection type Oracle will automagically generate a compatible SQL collection type. Exclude them-->
                 <value>SYS_PLSQL_*</value>
                 <!-- require set the 'isUsedSchemaNamesInFilters' to 'true'
                 <value>CTXSYS.SYS_PLSQL*</value>
+                <value>*.SYS_PLSQL_*</value>
+                <value>*.SYSTP*</value>
                 -->
+                <value>SYSTP*</value>
             </set>
         </entry>
         <entry key="EDITION"><set><value>*</value></set></entry>
@@ -265,18 +270,28 @@
         <entry key="RULE SET"><set><value>*</value></set></entry>
         <entry key="PROGRAM"><set><value>*</value></set></entry>
         <entry key="JAVA CLASS"><set><value>*</value></set></entry>
-        <!-- require set the 'isUsedSchemaNamesInFilters' to 'true'
         <entry key="TABLE">
             <set>
-                <value>ORDDATA.ORDDCM_PREFS_DEF_VALUES_TAB</value>
-                <value>ORDDATA.ORDDCM_PREFS_VALID_VALUES_TAB</value>
-                <value>SYSMAN.MGMT_DELTA_SUMMARY_ERRORS</value>
-                <value>SYSMAN.PARAM_VALUES_TAB</value>
-                <value>*DR$LOAD_FILE_IDX$*</value>
-                <value>*NESTED_CHAIRS</value>
+                <!-- require set the 'isUsedSchemaNamesInFilters' to 'true' -->
+                <!--value>ORDDATA.ORDDCM_PREFS_DEF_VALUES_TAB</value-->
+                <!--value>ORDDATA.ORDDCM_PREFS_VALID_VALUES_TAB</value-->
+                <!--value>SYSMAN.MGMT_DELTA_SUMMARY_ERRORS</value-->
+                <!--value>SYSMAN.PARAM_VALUES_TAB</value-->
+                <!--value>*\.DR\$*\$?</value-->  <!-- don't export tables, which auto generated for Indexes with INDEXTYPE IS "CTXSYS"."CONTEXT" (and like others) -->
+
+                <value>DR\$*\$?</value>
             </set>
         </entry>
-        -->
+        <entry key="GRANTS_OBJECTS">    <!-- Exclude list of objects for generating GRANT's ddl Privileges to system objects -->
+            <set>
+                <value>SYS.XML_DIR</value>
+                <value>SYS.VW_DBA_AUDIT_TRAIL</value>
+                <value>SYS.E2SN_UDUMP</value>
+                <value>SYS.DBMSHP_FUNCTION_INFO</value>
+                <value>SYS.DBMSHP_PARENT_CHILD_INFO</value>
+                <value>SYS.DBMSHP_RUNS</value>
+            </set>
+        </entry>
     </util:map>
 
 

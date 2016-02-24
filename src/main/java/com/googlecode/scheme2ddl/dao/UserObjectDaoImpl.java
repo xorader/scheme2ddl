@@ -74,7 +74,7 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         try {
             list = getJdbcTemplate().query(
                     "select db_link as object_name, 'PUBLIC DATABASE LINK' as object_type " +
-                            "from DBA_DB_LINKS " +
+                            "from ALL_DB_LINKS " +
                             "where owner='PUBLIC'",
                     new UserObjectRowMapper());
         } catch (BadSqlGrammarException sqlGrammarException) {
