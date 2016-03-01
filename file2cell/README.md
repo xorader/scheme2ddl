@@ -4,8 +4,8 @@
 * BLOB
 * CLOB
 * XMLTYPE
- 
- This util can import files in whole directory into table column. For more info look in util help output - `java -jar file2cell-1.0.jar -h`:
+
+This util can import files in whole directory into table column. For more info look in util help output - `java -jar file2cell-1.0.jar -h`:
 ```
 This util load LOB or XMLTYPE data from the file (or whole directory) to the Oracle
 table cell(s) (with BLOB, CLOB or XMLTYPE type).
@@ -51,6 +51,7 @@ Example usage:
  
 ### Howto build Jar
 
- In Linux just run: `make`
+ In Linux just run: `make`.
+
  In Windows run `mvn clean package` and result jar will `target/file2cell-1.0-jar-with-dependencies.jar`.
 
