@@ -586,4 +586,8 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         }
         return false;
     }
+
+    public boolean checkLaunchedByDBA() {
+        return isLaunchedByDBA;
+    }
 }

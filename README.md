@@ -1,4 +1,5 @@
 # scheme2ddl
+
  Command line util for export oracle schema to set of ddl scripts.
  
  Under construction... Please wait about one month (end of november).

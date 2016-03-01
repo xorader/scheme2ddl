@@ -47,4 +47,5 @@ public interface UserObjectDao {
 
     boolean isConnectionAvailable();
 
+    boolean checkLaunchedByDBA();
 }

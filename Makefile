@@ -2,19 +2,24 @@
 #
 
 VERSION := 2.2.4-x5
+FILE2CELL_JAR := file2cell/file2cell-1.0.jar
 SRC_FILES := $(shell find src -type f -print)
 JAR_VERSION_IN_POM := $(shell grep '<version>' pom.xml | head -n1 | sed -e 's/.*<version>\(.*\)<\/version>.*/\1/')
 
-all : target/scheme2ddl-$(VERSION).jar
+all : target/scheme2ddl-$(VERSION).jar $(FILE2CELL_JAR)
 
 target/scheme2ddl-$(VERSION).jar : pom.xml $(SRC_FILES)
 	@if [ "$(JAR_VERSION_IN_POM)" != "$(VERSION)" ] ; then echo "The VERSION value in Makefile \"$(VERSION)\" is not equals the version in pom.xml \"$(JAR_VERSION_IN_POM)\". Please fix it." ; exit 1 ; fi
 	mvn clean install
 
+$(FILE2CELL_JAR):
+	$(MAKE) -C file2cell
+
 clean:
 	mvn clean
 	rm -f dependency-reduced-pom.xml
 	rm -rf output
+	$(MAKE) -C file2cell clean
 
 # You need create the "/etc/oracle/tnsnames.ora" file with 'SQL_TEST_HOST' net service name for test by 'make jar-test'. Example:
 #  SQL_TEST_HOST = (DESCRIPTION =
@@ -33,4 +38,7 @@ jar-test:
 
 jar-test-full:
 	java -Doracle.net.tns_admin=/etc/oracle -jar target/scheme2ddl-$(VERSION).jar --config src/main/resources/scheme2ddl-full-schemas-sync.config.xml
+
+ddl2scheme-test:
+	./ddl2scheme.sh -R -i output SCOTT/TIGER@SQL_TEST_HOST2
 
