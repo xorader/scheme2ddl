@@ -740,13 +740,24 @@ cursor c_get_objects is
   select uo.object_type object_type_2,'"'||uo.object_name||'"'||decode(uo.object_type,'TABLE' ,' cascade constraints',null) obj_name2
   FROM USER_OBJECTS uo
   where uo.object_type in ('TABLE','VIEW','PACKAGE','SEQUENCE','SYNONYM', 'MATERIALIZED VIEW', 'FUNCTION', 'PROCEDURE')
-        and not (uo.object_type = 'TABLE' and exists (select 1 from user_nested_tables ant where uo.object_name = ant.table_name))
+        and not (uo.object_type = 'TABLE' and exists (select 1 from user_nested_tables unt where uo.object_name = unt.table_name))
         and not (uo.object_type = 'PROCEDURE' and uo.object_name = 'DROP_ALL_SCHEMA_OBJECTS')
   order by uo.object_type;
 cursor c_get_objects_type is
   select object_type, '"'||object_name||'"' obj_name
   from user_objects
   where object_type in ('TYPE');
+cursor c_get_dblinks is
+  select '"'||db_link||'"' obj_name
+  from user_db_links;
+cursor c_get_jobs is
+  select '"'||object_name||'"' obj_name
+  from user_objects
+  where object_type = 'JOB';
+cursor c_get_dbms_jobs is
+  select job obj_number_id
+  from user_jobs
+  where schema_user != 'SYSMAN';
 BEGIN
   begin
     for object_rec in c_get_objects loop
@@ -757,6 +768,17 @@ BEGIN
         execute immediate ('drop '||object_rec.object_type||' ' ||object_rec.obj_name);
       end;
     end loop;
+    for object_rec in c_get_dblinks loop
+        execute immediate ('drop database link '||object_rec.obj_name);
+    end loop;
+    for object_rec in c_get_jobs loop
+        DBMS_SCHEDULER.DROP_JOB(job_name => object_rec.obj_name);
+    end loop;
+    commit;
+    for object_rec in c_get_dbms_jobs loop
+        dbms_job.remove(object_rec.obj_number_id);
+    end loop;
+    commit;
   end;
 END DROP_ALL_SCHEMA_OBJECTS;
 

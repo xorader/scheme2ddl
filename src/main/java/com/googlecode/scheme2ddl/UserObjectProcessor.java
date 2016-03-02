@@ -180,7 +180,7 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
         } else if (userObject.getType().equals("JOB") && fixJobnameWithoutOwner) {
             res = DDLFormatter.checkAndFixJobnameWithoutOwner(res, userObject.getSchema());
         } else if (userObject.getType().equals("DATABASE LINK") && !userObject.getSchema().equals("SYS")
-                && fixCreateDBLinksOwner && userObjectDao.checkLaunchedByDBA())
+                && fixCreateDBLinksOwner)
         {
             res = DDLFormatter.fixCreateDBLink(res, userObject.getSchema(), userObjectDao);
         }
