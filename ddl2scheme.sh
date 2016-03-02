@@ -1,7 +1,12 @@
-#!/bin/sh
+#!/bin/bash
 #
 
 VERSION="1.1"
+
+NLS_LANG=${NLS_LANG:=AMERICAN_AMERICA.UTF8}
+SQLPLUS_BIN=${SQLPLUS_BIN:=sqlplus}
+FILE2CELL_JAR_NAME=${FILE2CELL_JAR_NAME:=file2cell-1.0.jar}
+FILE2CELL_JAR_FULLNAME=${FILE2CELL_JAR_FULLNAME:=file2cell/$FILE2CELL_JAR_NAME}
 
 ##############
 ## default settings
@@ -19,15 +24,12 @@ IS_CREATE_TABLESPACES_ONLY_COMMON=0
 IS_ONLY_CHECK_CONNECT=0
 IS_ONLY_DROP_SCHEMES=0
 IS_ONLY_RECOMPILE_INVALIDS=0
-INPUT_DIR="../output"
-NLS_LANG="AMERICAN_AMERICA.UTF8"
-SQLPLUS_BIN="sqlplus"
+INPUT_DIR="output"
 SQLPLUS_FIND_DIR="/opt/app/oracle/"
 LOG_DIR=
 LOG_DIRNAME_DEAFULT="logs_ddl2scheme"
 LOG_ALL_ERRORS_LIST="all_list_errors_here.log"
 #TMPDIR=/tmp
-FILE2CELL_JAR="file2cell/file2cell-1.0.jar"
 
 # Do not touch IT unless you really know what you are doing!!!
 # Some special(virtual) types:
@@ -36,8 +38,6 @@ FILE2CELL_JAR="file2cell/file2cell-1.0.jar"
 #
 CREATE_ORDER_TYPES="_TABLESPACES_,USERS,TYPES,OBJECT_GRANTS,TABLES,SEQUENCES,DB_LINKS,VIEWS,SYNONYMS,FUNCTIONS,PROCEDURES,PACKAGES,JAVA_SOURCES,DATA_TABLES,CONSTRAINTS,_RECOMPILE_,OBJECT_GRANTS,_RECOMPILE_,OBJECT_GRANTS,_RECOMPILE_,INDEXES,REF_CONSTRAINTS,TRIGGERS,JOBS,DBMS_JOBS"
 
-# TODO ???
-RE_CREATE_ORDER_TYPES="VIEWS"
 # TODO: CLUSTERS type ? подумать что там и зачем
 
 # Terminate script then any errors occurs
@@ -52,12 +52,10 @@ SQLPLUS_PARSE_ERROR_CODE=33
 # https://community.oracle.com/thread/1061664
 REMOVE_SEGMENT_CREATION_DEFERRED=1
 
-###
-# fix dirs paths
-PWD_SH=$(dirname -- "$0")
-echo "$PWD_SH" | grep -qv "^/" && PWD_SH=`pwd`
-
 # internal values (do not touch)
+SCRIPT_NAME=$(basename -- "$0")
+PWD_SH=$(dirname "$(readlink -f "$0")")
+CURRENT_PWD=`pwd`
 run_as_sysdba=0
 
 #
@@ -89,16 +87,36 @@ fix_sqlplus_bin_path ( )
 		return
 	fi
 
-	if [ $VERBOSE -eq 1 ] ; then
-		echo "Can not find ${SQLPLUS_BIN}. Try to find it in the '$SQLPLUS_FIND_DIR'."
-	fi
-
 	local new_sqlplus_bin=`find $SQLPLUS_FIND_DIR -path "*/bin/sqlplus" -type f 2>/dev/null || true`
 	if [ -z "$new_sqlplus_bin" ] ; then
 		echo "Can not find the 'bin/sqlplus' in the '$SQLPLUS_FIND_DIR'. Exit."
+		echo "You can fix it - specify sqlplus fullname (with path) in the 'SQLPLUS_BIN' environment."
 		exit 6
 	fi
 	SQLPLUS_BIN="$new_sqlplus_bin"
+}
+
+fix_file2cell_bin_path ( )
+{
+	if [ -f $FILE2CELL_JAR_FULLNAME ] ; then
+		# ok
+		return
+	fi
+
+	local new_file2cell_fullname="$PWD_SH/$FILE2CELL_JAR_FULLNAME"
+	if [ -f $new_file2cell_fullname ] ; then
+		FILE2CELL_JAR_FULLNAME=$new_file2cell_fullname
+		return
+	fi
+	new_file2cell_fullname="$PWD_SH/$FILE2CELL_JAR_NAME"
+	if [ -f $new_file2cell_fullname ] ; then
+		FILE2CELL_JAR_FULLNAME=$new_file2cell_fullname
+		return
+	fi
+
+	echo "Can not find the '$FILE2CELL_JAR_NAME' in the '$PWD_SH' directory. Exit."
+	echo "You can fix it - specify '$FILE2CELL_JAR_NAME' fullname (with path) in the 'FILE2CELL_JAR_FULLNAME' environment."
+	exit 6
 }
 
 recompile_invalid_objects ( )
@@ -519,7 +537,6 @@ process_tablespaces ( )
 		return
 	fi
 
-	# TODO: проверть ещё находиться ли в /PUBLIC/ юзере
 	local tbs_dir=`find "$directory" -maxdepth 2 -mindepth 2 -type d -iwholename "*/public/tablespaces" | head -n 1`
 	local logfile="${LOG_DIR}/TABLESPACES.log"
 
@@ -594,24 +611,6 @@ process_sql_objects_in_dir_type ( )
 			logfile="${LOG_DIR}/${type_name}${log_suffix}.log"
 		fi
 
-		# Не нужно дропать, так как dblink'и всё же дропаются вместе со схемой. Если owner dblink'а совпадает, конечно.
-		# А если owner не совпадает, то эти dblink'и вообще не влияют на схему и не пересекаются с другими dblink'ами (у которых owner 'SYS', например).
-		# А если и хочется дропнуть у нужного owner'а то только вот так: https://adityanathoracledba.wordpress.com/2014/06/29/how-to-drop-other-schemas-database-link-using-sys-user/
-		# Пример внизу не сработает (только у SYS удалит).
-		#
-		#if [ $type_name = "DB_LINKS" -a $IS_DROP_SCHEME -eq 1 ] ; then
-		#	local db_link_name=`cat $isqlfile | egrep -i "^[ \t]*CREATE DATABASE LINK " | sed -e 's/^[ \t]*CREATE DATABASE LINK "\([^"]*\)"/\1/i'`
-		#	if [ -n "$db_link_name" ] ; then
-		#		if [ $VERBOSE -eq 1 ] ; then
-		#			echo "DROP DATABASE LINK $db_link_name"
-		#		fi
-		#		echo "DROP DATABASE LINK $db_link_name" >> $logfile
-		#		local sql_drop_db_link_cmd="DROP DATABASE LINK \"$db_link_name\";"
-		#		echo "sql> $sql_drop_db_link_cmd" >> $logfile
-		#		echo -e "$sql_drop_db_link_cmd\n exit;" | $SQLPLUS_BIN -S $CONNECT_URL >> $logfile
-		#	fi
-		#fi
-
 		if [ $VERBOSE -eq 1 ] ; then
 			echo -e "---\nProcessing $isqlfile" | tee -a $logfile
 		else
@@ -665,7 +664,7 @@ process_sql_objects_in_dir_type ( )
 			echo -e "---\nProcessing LOB files in $lobdir" >> $logfile
 			echo "-----------------------------" >> $logfile
 			(java -Doracle.net.tns_admin=/etc/oracle -Djava.security.egd=file:/dev/./urandom \
-				-jar $FILE2CELL_JAR -u "$CONNECT_URL_JAVA" -d "$lobdir" -t $lob_tablename $file2cell_option \
+				-jar $FILE2CELL_JAR_FULLNAME -u "$CONNECT_URL_JAVA" -d "$lobdir" -t $lob_tablename $file2cell_option \
 				; echo "$?" >$error_code_sqlplus_file) | tee -a $logfile
 			local error_code="`cat $error_code_sqlplus_file 2>/dev/null`"
 			if [ "$error_code" != "0" ] ; then
@@ -875,7 +874,8 @@ process_all_sql_objects_single ( )
 		fi
 
 		type_name=`basename $idir | tr '[:lower:]' '[:upper:]'`
-		# TODO: skip filtered types
+
+		# TODO: make filters and skip filtered types here
 
 		if [ "$type_name" = "DBMS_JOBS" -o "$type_name" = "JOBS" ] ; then
 			dbms_scheduler_stop
@@ -890,10 +890,6 @@ process_all_sql_objects_single ( )
 		else
 			echo -en "Process objects of the '$type_name' type: "
 		fi
-
-		# temporary pause -
-		# TODO: delete all lines with 'pause_code'
-		#if [ "$type_name" = "CONSTRAINTS" ] ; then pause_code=1 ; fi
 
 		process_sql_objects_in_dir_type "$idir" "$type_name" "" $pause_code
 		if [ "$type_name" = "OBJECT_GRANTS" ] ; then
@@ -931,31 +927,49 @@ do
 	  -i) INPUT_DIR="$2"; shift ;;
           -l) LOG_DIR="$2"; shift ;;
 	  --) shift; break ;;
-	  -*)	echo "usage: $0 [-v] [-e] [-S] [-i <Input directory>] [-l <logdir>] <connect URL>"
+	  -*)
+		echo "version '$SCRIPT_NAME': $VERSION"
+		echo "Util load DDL files into Oracle DB by sqlplus. DDL files takes from <Input directory>."
+		echo "Util can work in two modes:"
+		echo " 1. 'Single schema loading' - then script runs by single user (non sysdba). This mode"
+		echo "             read the <Input directory> contains other directories as Types and order them"
+		echo "             by CREATE_ORDER_TYPES."
+		echo " 2. 'Multy schema loading' - then script runs by 'sys as sysdba' superuser. This mode"
+		echo "             read the <Input directory> contains other directories as Schemas list and"
+		echo "             this schemas-directories contains subdirectories as Types. And processing"
+		echo "             this types-subdirectories like 'Single schema loading'."
+		echo "This util uses the 'sqlplus' util and file2cell jar-file: $FILE2CELL_JAR_NAME"
+		echo
+		echo "usage: $0 [-v] [-e] [-S] [-i <Input directory>] [-l <logdir>] <connect URL>"
 		echo "  -v      -- be verbose."
 		echo "  -t      -- check connect and exit."
-		echo "  -i <input ddls directory> -- directory with DDLs files (generated by scheme2ddl java tool). Default: '$INPUT_DIR'"
-		echo "  -s <schemaname>           -- force be 'Single schema loading' for Input directory for 'sys as sysdba' user."
-		echo "          Interpret the directory as usual, even if script starting of a superuser."
-		echo "          The <schemaname> argument uses then LOBs file loading."
+		echo "  -i <input ddls directory> -- directory with DDLs files (generated by scheme2ddl tool)."
+		echo "             Default: '$INPUT_DIR'."
+		echo "  -s <schemaname>           -- force be 'Single schema loading' for Input directory."
+		echo "             The <Input directory> interprets as dir contains types-directories, even if"
+		echo "             script starting of a superuser."
 		echo "  -S      -- do not show spinner."
 		echo "  -e      -- do pause and wait Enter then errors."
-		echo "  -l      -- directory for logs (default: $LOG_DIRNAME_DEAFULT in input directory)."
-		echo "  -R      -- do DROP(replace) SCHEMA before (re)creating, then uses 'Multy schema loading' (by superuser)."
-		echo "             Or delete all objects for current schema for 'Single schema loading'."
+		echo "  -l      -- directory for logs (default: '$LOG_DIRNAME_DEAFULT' in the <Input directory>)."
+		echo "  -R      -- For 'Multy schema loading' (by superuser): DROPs Schemas before creating them."
+		echo "             For 'Single schema loading': delete all objects for current schema."
 		echo "  -scheds -- do not stop DBMS SCHEDULER during dbms_jobs loading and start after."
-		echo "  -stbs   -- do strong (as is) create not existing tablespaces (from PUBLIC/TABLESPACES directory)."
-		echo "             Workes for superuser only."
-		echo "  -ctbs   -- do common (with common option only) create not existing tablespaces (from same above dir)."
-		echo "             Workes for superuser only. This choise creates only PERMANENT tablespaces with common options:"
-		echo "               SIZE 512M AUTOEXTEND ... LOGGING...MANAGEMENT..."
-		echo "  -onlydropchemas           -- drop all schemas (TODO: and others objects) and exit. List schemas takes from the <Input directory>."
-		echo "                               Also, this option can delete all objects for 'Single schema loading'"
-		echo "  -onlyrecompileinvalids    -- recompile all invalid objects and exit."
-		echo "file2cell version: ..."
-		echo "version: $VERSION"
+		echo "  -stbs   -- do strong (as is) create not existing tablespaces (from the PUBLIC/TABLESPACES"
+		echo "             directory(ies)). Workes for superuser only."
+		echo "  -ctbs   -- do common (with common option only) create not existing tablespaces (from the"
+		echo "             PUBLIC/TABLESPACES directory(ies)). Workes for superuser only."
+		echo "             This option creates only PERMANENT tablespaces with common options like:"
+		echo "                 SIZE 512M AUTOEXTEND ... LOGGING...MANAGEMENT..."
+		echo "  -onlydropchemas        -- For 'Multy schema loading':  drop all schemas and exit."
+		echo "                                    (List schemas takes from the <Input directory>.)"
+		echo "                            For 'Single schema loading': delete all objects for schema"
+		echo "                                    and exit."
+		echo "  -onlyrecompileinvalids -- recompile all invalid objects and exit."
+		echo
+		echo "Examples run:"
+		echo "* ./ddl2scheme.sh -R -i /tmp/some_sql_single_directory SCOTT/TIGER@localhost/SIDNAME"
+		echo "* ./ddl2scheme.sh -ctbs -R -i /tmp/some_sql_multy_directory sys as sysdba/syspasswd@localhost/SIDNAME"
 		exit 1
-		#TODO: explain about 'Single schema loading' vs 'Multy schema loading'
 		;;
 	  *) break;;     # terminate while loop
 	esac
@@ -985,11 +999,13 @@ if [ -n "`echo $user | grep -E ".+as +sysdba *"`" ] ; then
 fi
 
 fix_sqlplus_bin_path
+fix_file2cell_bin_path
 
 if [ $VERBOSE -eq 1 ] ; then
 	echo "Use connect url (for sqlplus): $CONNECT_URL"
 	echo "Use input dir: $INPUT_DIR"
 	echo "Use sqlplus: $SQLPLUS_BIN"
+	echo "Use file2cell: $FILE2CELL_JAR_FULLNAME"
 fi
 
 check_connect "$CONNECT_URL"
@@ -1061,7 +1077,6 @@ if [ -f ${LOG_DIR}/$LOG_ALL_ERRORS_LIST ] ; then
 	errors_counter=`wc -l ${LOG_DIR}/$LOG_ALL_ERRORS_LIST | cut -f 1 -d " "`
 	echo "See all $errors_counter errors list in the '${LOG_DIR}/$LOG_ALL_ERRORS_LIST' file."
 
-	# TODO: exec utl_recomp.recomp_parallel(0); in sqlplus ?
 	echo "Also you can run the 'exec utl_recomp.recomp_parallel(0);' in sqlplus (for hand validating and recompiling objects)."
 fi
 
