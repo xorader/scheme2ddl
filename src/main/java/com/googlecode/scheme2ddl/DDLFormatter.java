@@ -29,17 +29,17 @@ public class DDLFormatter {
     public static final int maxSqlplusCmdLineLength = 2495;    // 2500 is the maximum of sqlplus CMD line length (and minus 5 bytes - sqlplus uses for eols and one character)
 
     public DDLFormatter() {
-        this.charsetName = charsetNameDefault;
-        encoder = Charset.forName(charsetNameDefault).newEncoder();
+        this.charsetName = this.charsetNameDefault;
+        this.encoder = Charset.forName(this.charsetName).newEncoder();
     }
 
     public DDLFormatter(String charsetName) {
-        this.charsetName = charsetName;
-        if (charsetName != null && !charsetName.equals("")) {
-            encoder = Charset.forName(charsetName).newEncoder();
+        if (charsetName == null || charsetName.equals("")) {
+            this.charsetName = this.charsetNameDefault;
         } else {
-            encoder = Charset.forName(charsetNameDefault).newEncoder();
+            this.charsetName = charsetName;
         }
+        this.encoder = Charset.forName(this.charsetName).newEncoder();
     }
 
     public String formatDDL(String ddl) {
@@ -64,10 +64,10 @@ public class DDLFormatter {
     }
 
     public void setEncoder(String charsetName) {
-        if (charsetName != null && !charsetName.equals("")) {
-            this.charsetName = charsetName;
-            encoder = Charset.forName(charsetName).newEncoder();
+        if (charsetName == null || charsetName.equals("")) {
+            this.charsetName = this.charsetNameDefault;
         }
+        this.encoder = Charset.forName(this.charsetName).newEncoder();
     }
 
     /**
