@@ -54,7 +54,7 @@ REMOVE_SEGMENT_CREATION_DEFERRED=1
 
 # internal values (do not touch)
 SCRIPT_NAME=$(basename -- "$0")
-PWD_SH=$(dirname "$(readlink -f "$0")")
+SCRIPT_PWD=$(dirname "$(readlink -f "$0")")
 CURRENT_PWD=`pwd`
 run_as_sysdba=0
 
@@ -103,18 +103,18 @@ fix_file2cell_bin_path ( )
 		return
 	fi
 
-	local new_file2cell_fullname="$PWD_SH/$FILE2CELL_JAR_FULLNAME"
+	local new_file2cell_fullname="$SCRIPT_PWD/$FILE2CELL_JAR_FULLNAME"
 	if [ -f $new_file2cell_fullname ] ; then
 		FILE2CELL_JAR_FULLNAME=$new_file2cell_fullname
 		return
 	fi
-	new_file2cell_fullname="$PWD_SH/$FILE2CELL_JAR_NAME"
+	new_file2cell_fullname="$SCRIPT_PWD/$FILE2CELL_JAR_NAME"
 	if [ -f $new_file2cell_fullname ] ; then
 		FILE2CELL_JAR_FULLNAME=$new_file2cell_fullname
 		return
 	fi
 
-	echo "Can not find the '$FILE2CELL_JAR_NAME' in the '$PWD_SH' directory. Exit."
+	echo "Can not find the '$FILE2CELL_JAR_NAME' in the '$SCRIPT_PWD' directory. Exit."
 	echo "You can fix it - specify '$FILE2CELL_JAR_NAME' fullname (with path) in the 'FILE2CELL_JAR_FULLNAME' environment."
 	exit 6
 }
