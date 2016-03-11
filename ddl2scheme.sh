@@ -82,7 +82,7 @@ check_connect ( )
 
 fix_sqlplus_bin_path ( )
 {
-	if which $SQLPLUS_BIN > /dev/null ; then
+	if which $SQLPLUS_BIN > /dev/null 2>&1 ; then
 		# ok
 		return
 	fi
