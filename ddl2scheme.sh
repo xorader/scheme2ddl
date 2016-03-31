@@ -950,7 +950,7 @@ do
 		echo "             script starting of a superuser."
 		echo "  -S      -- do not show spinner."
 		echo "  -e      -- do pause and wait Enter then errors."
-		echo "  -l      -- directory for logs (default: '$LOG_DIRNAME_DEAFULT' in the <Input directory>)."
+		echo "  -l <dir>-- directory for logs (default: '$LOG_DIRNAME_DEAFULT' in the <Input directory>)."
 		echo "  -R      -- For 'Multy schema loading' (by superuser): DROPs Schemas before creating them."
 		echo "             For 'Single schema loading': delete all objects for current schema."
 		echo "  -scheds -- do not stop DBMS SCHEDULER during dbms_jobs loading and start after."
