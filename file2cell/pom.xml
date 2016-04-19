@@ -4,7 +4,7 @@
   <groupId>ru.transset.projects.file2cell</groupId>
   <artifactId>file2cell</artifactId>
   <packaging>jar</packaging>
-  <version>1.0</version>
+  <version>1.1</version>
   <name>file2cell</name>
   <url>http://transset.ru/file2cell/</url>
   <dependencies>

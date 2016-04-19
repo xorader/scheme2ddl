@@ -3,7 +3,7 @@
 #  1) mvn archetype:generate -DgroupId=ru.transset.projects.file2cell -DartifactId=file2cell -DarchetypeArtifactId=maven-archetype-quickstart -DinteractiveMode=false
 #  2) added the build->plugins->plugin->{artifactId->maven-assembly-plugin ...} section in pom.xml
 
-VERSION := 1.0
+VERSION := 1.1
 PROJECT_NAME := file2cell
 RESULT_JAR := $(PROJECT_NAME)-$(VERSION).jar
 SRC_FILES := $(shell find src -type f -print)

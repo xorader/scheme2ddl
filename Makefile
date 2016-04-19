@@ -2,7 +2,7 @@
 #
 
 VERSION := 2.2.4-x5
-FILE2CELL_JAR := file2cell/file2cell-1.0.jar
+FILE2CELL_JAR := file2cell/file2cell-1.1.jar
 SRC_FILES := $(shell find src -type f -print)
 JAR_VERSION_IN_POM := $(shell grep '<version>' pom.xml | head -n1 | sed -e 's/.*<version>\(.*\)<\/version>.*/\1/')
 DIST_DIR := scheme2ddl-$(VERSION)

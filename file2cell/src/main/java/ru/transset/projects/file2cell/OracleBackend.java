@@ -569,9 +569,14 @@ public class OracleBackend
                 // update by 'empty_blob()' value and exit
                 final String sqlUpdateBlobByEmpty = "UPDATE " + sqlBlobTable + " SET " + sqlBlobColumn + "=EMPTY_BLOB() WHERE " + sqlBlobIdName + " = " + sqlBlobIdValue;
                 Statement stmt = conn.createStatement();
-                stmt.executeUpdate(sqlUpdateBlobByEmpty);
+                final int empty_count = stmt.executeUpdate(sqlUpdateBlobByEmpty);
                 stmt.close();
-                return true;
+
+                if (empty_count == 0) {
+                    return false;
+                } else {
+                    return true;
+                }
             }
 
             inputFileInputStream = new FileInputStream(inputBinaryFile);
@@ -1138,6 +1143,10 @@ public class OracleBackend
             System.out.println("===== dir processing begins =====");
         }
 
+        if (!verbose && !spinner) {
+            System.out.print("Process LOBS for the '" + fullLobTableName + "' table: ");
+        }
+
         final File[] lobFilesList = getLobXmlFilesFromDirectory(directory, filesWildcard, sqlLobColumn);
         final int lobFilesListSize = lobFilesList.length;
 
@@ -1177,7 +1186,7 @@ public class OracleBackend
         if (!verbose && !spinner) {
             System.out.println();
         }
-        System.out.println("Loading LOBS for '" + fullLobTableName + "' table finished: " + counter + "/" + lobFilesListSize + " (fails: " + failCounter + ")");
+        System.out.println("LOBS for the '" + fullLobTableName + "' table loaded: " + counter + "/" + lobFilesListSize + " (fails: " + failCounter + ")");
 
         if (failCounter == 0) {
             return true;
