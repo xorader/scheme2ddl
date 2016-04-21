@@ -50,6 +50,7 @@
         <entry key="isExportDataTable" value="false"/>
         <entry key="isSortExportedDataTable" value="true"/>
         <entry key="sortingByColumnsRegexpList" value="^(id|id_.+|.+_id|uniq_.+)$"/>
+        <entry key="isIgnoreDbmsJobsErrors" value="false"/> <!-- Ignore errors during export 'DBMS JOB' objects and continue exporting -->
     </util:map>
 
     <!-- http://download.oracle.com/docs/cd/B19306_01/appdev.102/b14258/d_metada.htm#BGBJBFGE -->

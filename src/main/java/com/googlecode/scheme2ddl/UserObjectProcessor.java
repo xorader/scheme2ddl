@@ -40,6 +40,7 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
     private boolean fixCreateDBLinksOwner = false;
     private String sortingByColumnsRegexpList = null;
     private String dataCharsetName = null;
+    private boolean isIgnoreDbmsJobsErrors = false;
 
     public UserObject process(UserObject userObject) throws Exception {
         String ddl;
@@ -161,7 +162,7 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
 
     private String map2Ddl(UserObject userObject) {
         if (userObject.getType().equals("DBMS JOB")) {
-            return ddlFormatter.formatDDL(userObjectDao.findDbmsJobDDL(userObject.getName()));
+            return ddlFormatter.formatDDL(userObjectDao.findDbmsJobDDL(userObject.getName(), isIgnoreDbmsJobsErrors));
         } else if (userObject.getType().equals("PUBLIC DATABASE LINK")) {
             return ddlFormatter.formatDDL(userObjectDao.findDDLInPublicScheme(map2TypeForDBMS(userObject.getType()), userObject.getName()));
         } else if (userObject.getType().equals("USER")) {
@@ -325,6 +326,11 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
                 && settingsUserObjectProcessor.get("fixCreateDBLinksOwner"))
         {
             this.fixCreateDBLinksOwner = true;
+        }
+        if (settingsUserObjectProcessor.get("isIgnoreDbmsJobsErrors") != null
+                && settingsUserObjectProcessor.get("isIgnoreDbmsJobsErrors"))
+        {
+            this.isIgnoreDbmsJobsErrors = true;
         }
     }
 

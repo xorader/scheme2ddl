@@ -436,7 +436,7 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         return executeDbmsMetadataGetDdl("select dbms_metadata.get_ddl(?, ?, ?) from dual", type, name, "PUBLIC");
     }
 
-    public String findDbmsJobDDL(String name) {
+    public String findDbmsJobDDL(String name, final boolean isIgnoreDbmsJobsErrors) {
         String sql;
         if (isLaunchedByDBA)
             // The 'dbms_job.user_export' function does not work with sys/dba users (can't find users jobs). :(
@@ -453,7 +453,18 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                     ":done := callstr; " +
                     "END;";
 
-        return "BEGIN\n" + ((String) getJdbcTemplate().execute(sql, new CallableStatementCallbackImpl())) + "\nEND;\n/";
+        try {
+            return "BEGIN\n" + ((String) getJdbcTemplate().execute(sql, new CallableStatementCallbackImpl())) + "\nEND;\n/";
+        } catch (DataAccessException dataExpection) {   // org.springframework.dao.DataIntegrityViolationException
+            if (isIgnoreDbmsJobsErrors) {
+                dataExpection.printStackTrace();
+                logger.error("WARNING: Skip error during the '" + name + "' DBMS JOB exporting: " + dataExpection.getMessage(), dataExpection);
+                return "";
+            } else {
+                throw dataExpection;
+                //throw new DaoException(dataExpection.getMessage(), dataExpection);
+            }
+        }
     }
 
     public boolean isConnectionAvailable() {

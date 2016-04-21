@@ -27,7 +27,7 @@ public interface UserObjectDao {
 
     String findDDLInPublicScheme(String type, String name);
 
-    String findDbmsJobDDL(String name);
+    String findDbmsJobDDL(String name, boolean isIgnoreDbmsJobsErrors);
 
     String generateUserDDL(String name, Set<String> excludeGrants);
 
