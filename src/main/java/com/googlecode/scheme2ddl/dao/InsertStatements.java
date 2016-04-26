@@ -537,7 +537,7 @@ public class InsertStatements {
      */
     public void generateInsertStatements(Connection conn, String schema_name, String tableName, final TableExportProperty tableProperty,
             final String preparedTemplate, final String preparedTemplateDataLob, final String outputPath,
-            final boolean isSortExportedDataTable, final String sortingByColumnsRegexpList)
+            final boolean isSortExportedDataTable, final boolean isGenerateColumnNamesForInserts, final String sortingByColumnsRegexpList)
         throws SQLException, DataAccessException, IOException
     {
         final String fullTableName;
@@ -666,7 +666,12 @@ public class InsertStatements {
                 primaryKeyValue = null;
             }
 
-            String resultString = ddlFormatter.splitBigLinesByNewline(String.format("INSERT INTO %s (%s) values (", fullTableName, columnNames));
+            String resultString;
+            if (isGenerateColumnNamesForInserts) {
+                resultString = ddlFormatter.splitBigLinesByNewline(String.format("INSERT INTO %s (%s) values (", fullTableName, columnNames));
+            } else {
+                resultString = String.format("INSERT INTO %s values (", fullTableName);
+            }
             this.currentLineLength = ddlFormatter.getStringBytes(getLastLine(resultString));
 
             for (int i = 0; i < numColumns; i++) {

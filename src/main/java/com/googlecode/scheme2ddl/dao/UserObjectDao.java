@@ -35,7 +35,7 @@ public interface UserObjectDao {
 
     String generatePublicGrants(Set<String> excludeGrants);
 
-    void exportDataTable(UserObject userObject, TableExportProperty tableProperty, FileNameConstructor fileNameConstructor, boolean isSortExportedDataTable, String sortingByColumnsRegexpList, String dataCharsetName);
+    void exportDataTable(UserObject userObject, TableExportProperty tableProperty, FileNameConstructor fileNameConstructor, boolean isSortExportedDataTable, boolean isGenerateColumnNamesForInserts, String sortingByColumnsRegexpList, String dataCharsetName);
 
     boolean isConstraintUniqueSysGenerated(String ownerConstraint, String tableConstraint, String columnConstraint);
 

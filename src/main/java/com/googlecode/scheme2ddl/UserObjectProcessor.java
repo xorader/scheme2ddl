@@ -34,6 +34,7 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
     private boolean isUsedSchemaNamesInFilters = false;
     private boolean isExportDataTable = false;
     private boolean isSortExportedDataTable = false;
+    private boolean isGenerateColumnNamesForInserts = false;
     private boolean replaceSequenceValues = false;
     private boolean fixTriggerWithoutObjectnameOwner = false;
     private boolean fixJobnameWithoutOwner = false;
@@ -58,7 +59,7 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
             TableExportProperty tableProperty = getTableExportProperties(userObject);
 
             if (tableProperty.maxRowsExport != TableExportProperty.doesNotExportData) {
-                userObjectDao.exportDataTable(userObject, tableProperty, fileNameConstructor, isSortExportedDataTable, sortingByColumnsRegexpList, dataCharsetName);
+                userObjectDao.exportDataTable(userObject, tableProperty, fileNameConstructor, isSortExportedDataTable, isGenerateColumnNamesForInserts, sortingByColumnsRegexpList, dataCharsetName);
             } else {
                 log.debug(String.format("Skipping processing of data table of: %s ", userObject));
             }
@@ -306,6 +307,14 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
                 && settingsUserObjectProcessor.get("isSortExportedDataTable"))
         {
             this.isSortExportedDataTable = true;
+        }
+        if (settingsUserObjectProcessor.get("isGenerateColumnNamesForInserts") != null)
+        {
+            if (settingsUserObjectProcessor.get("isGenerateColumnNamesForInserts")) {
+                this.isGenerateColumnNamesForInserts = true;
+            } else {
+                this.isGenerateColumnNamesForInserts = false;
+            }
         }
         if (settingsUserObjectProcessor.get("replaceSequenceValues") != null
                 && settingsUserObjectProcessor.get("replaceSequenceValues"))

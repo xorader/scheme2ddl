@@ -51,6 +51,7 @@
         <entry key="isSortExportedDataTable" value="true"/>
         <entry key="sortingByColumnsRegexpList" value="^(id|id_.+|.+_id|uniq_.+)$"/>
         <entry key="isIgnoreDbmsJobsErrors" value="false"/> <!-- Ignore errors during export 'DBMS JOB' objects and continue exporting -->
+        <entry key="isGenerateColumnNamesForInserts" value="true"/> <!-- generate INSERT statemens for DATA_TABLES with column names -->
     </util:map>
 
     <!-- http://download.oracle.com/docs/cd/B19306_01/appdev.102/b14258/d_metada.htm#BGBJBFGE -->

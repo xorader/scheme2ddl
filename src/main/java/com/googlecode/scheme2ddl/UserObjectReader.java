@@ -52,10 +52,6 @@ public class UserObjectReader implements ItemReader<UserObject> {
         log.info(String.format("Start getting of user object list in schema %s for processing", schemaName));
         list = new ArrayList<UserObject>();
 
-        if (processDmbsJobs) {
-            list.addAll(userObjectDao.findDmbsJobs());
-        }
-
         if (schemaName.equals("PUBLIC")) {
             if (processTablespaces) {
                 list.addAll(userObjectDao.findTablespaces());
@@ -68,6 +64,10 @@ public class UserObjectReader implements ItemReader<UserObject> {
             }
 
             return;
+        }
+
+        if (processDmbsJobs) {
+            list.addAll(userObjectDao.findDmbsJobs());
         }
 
         list.addAll(userObjectDao.findListForProccessing());
