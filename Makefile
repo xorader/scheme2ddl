@@ -31,8 +31,8 @@ tmp/$(DIST_DIR).tar.gz: target/scheme2ddl-$(VERSION).jar ddl2scheme.sh src/main/
 	cp ddl2scheme.sh tmp/$(DIST_DIR)
 	cp src/main/resources/scheme2ddl*.xml tmp/$(DIST_DIR)
 	cp $(FILE2CELL_JAR) tmp/$(DIST_DIR)
-	@echo "time java -jar scheme2ddl-$(VERSION).jar --config scheme2ddl-full-schemas-sync.config.xml  -s 'SCOTT' -url "sys as sysdba/syspasswd@localhost/SIDNAME" -o output | tee output/log-scott01" > tmp/$(DIST_DIR)/example-launch.txt
-	@echo "./ddl2scheme.sh -v -t sys as sysdba/syspasswd@localhost/SIDNAME" >> tmp/$(DIST_DIR)/example-launch.txt
+	@echo "time java -jar scheme2ddl-$(VERSION).jar --config scheme2ddl-full-schemas-sync.config.xml  -s 'SCOTT' -url "sys as sysdba/syspasswd@localhost:1521:SIDNAME" -o output | tee output/log-scott01" > tmp/$(DIST_DIR)/example-launch.txt
+	@echo "./ddl2scheme.sh -v -t sys as sysdba/syspasswd@localhost:1521/SIDNAME" >> tmp/$(DIST_DIR)/example-launch.txt
 	cd tmp && tar czf $(DIST_DIR).tar.gz $(DIST_DIR)
 	rm -rf tmp/$(DIST_DIR)
 	@echo
