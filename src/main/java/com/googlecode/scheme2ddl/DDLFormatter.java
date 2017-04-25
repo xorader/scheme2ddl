@@ -435,6 +435,35 @@ public class DDLFormatter {
         return matchDdl.group("part1") + "\"" + schemaName + "\"." + matchDdl.group("jobname") + matchDdl.group("part2");
     }
 
+    private static final Pattern patternScheduleWithoutOwner = Pattern.compile(
+            "(?<part1>[ \t\r\n]*BEGIN[ \t\r\n]+.*dbms_scheduler.create_schedule\\(')(?<owner>\"[^\"]+\"\\.|)(?<schedname>\"[^\"]+\")"
+            + "(?<part2>'[ \t\r\n]*,.*)",
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+    /**
+     * Find Scheduler without owner in name, ddl like:  BEGIN .* dbms_scheduler.create_schedule('"SOME_SCHED"', start_date, repeat_interval, end_date, comments); .* ...
+     * and add owner in name like: BEGIN .* dbms_scheduler.create_schedule('"SCOTT"."SOME_SCHED"', start_date, repeat_interval, end_date, comments); .* ...
+     */
+    public static String checkAndFixScheduleNameWithoutOwner(String oneDdl, final String schemaName) {
+        // Fix the comma sign to the dot sign in the "TO_TIMESTAMP_TZ('23-APR-2017 08.36.18,000000000 PM +03:00'" expressions.
+        // This is the Oracle DB bug after the "dbms_metadata.get_ddl()" executions.
+        oneDdl = oneDdl.replaceAll("(TO_TIMESTAMP_TZ\\('[^']*)(,)([^']*')", "$1.$3");
+
+        if (schemaName == null || schemaName.equals("")) {
+            return oneDdl;
+        }
+        Matcher matchDdl = patternScheduleWithoutOwner.matcher(oneDdl);
+
+        if (!matchDdl.find()) {
+            return oneDdl;
+        }
+
+        if (!matchDdl.group("owner").equals("")) {
+            return oneDdl;
+        }
+
+        return matchDdl.group("part1") + "\"" + schemaName + "\"." + matchDdl.group("schedname") + matchDdl.group("part2");
+    }
+
     private static String tmp_procedure_name_prefix = "TMP_DOIT_20160212_";
 
     public static String fixCreateDBLink(final String ddl, final String schemaName, final UserObjectDao userObjectDao) {
