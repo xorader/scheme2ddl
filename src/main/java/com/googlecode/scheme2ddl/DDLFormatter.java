@@ -466,7 +466,7 @@ public class DDLFormatter {
 
     private static String tmp_procedure_name_prefix = "TMP_DOIT_20160212_";
 
-    public static String fixCreateDBLink(final String ddl, final String schemaName, final UserObjectDao userObjectDao) {
+    public static String fixCreateDBLink(final String ddl, final String objectName, final String schemaName, final UserObjectDao userObjectDao) {
         String resultDdl =
               "-- Special way for CREATE DATABASE LINK objects with correct OWNER (for current schema)\n"
             + "-- This is need because simple 'CREATE DATABASE LINK ...' query creates db_link with owner which executes this query ('SYS' for example),\n"
@@ -479,11 +479,22 @@ public class DDLFormatter {
         }
         final String tmpProcedureName = tmp_procedure_name_prefix + counter;
 
+        /*
+         *  Fix ':1' string value to real hash password. This fix workes only for sysdba connections.
+         *  This is will fix error during upload this ddl back to DB:
+         *    'ORA-02153: Invalid VALUES Password String' when creating a Database Link using BY VALUES with
+         *    obfuscated password after upgrade to 11.2.0.4 (Doc ID 1905221.1).
+         *  Usefull links:
+         *    - http://www.ludovicocaldara.net/dba/ora-02153-create-database-link/
+         *    - https://www.krenger.ch/blog/find-password-for-database-link/
+         */
+        final String hashDBLinkPassword = userObjectDao.getHashDBLinkPassword(objectName, schemaName);
+
         resultDdl += "CREATE PROCEDURE "+schemaName+"."+tmpProcedureName+"\n"
             + "IS\n"
             + "BEGIN\n"
             + "EXECUTE IMMEDIATE '"
-            + ddl.replace("'", "''").replace(";", "") + "\n"
+            + ddl.replace("'", "''").replace(";", "").replace("':1'", hashDBLinkPassword == null ? "':1'" : "'"+hashDBLinkPassword+"'") + "\n"
             + "';\n"
             + "END;\n"
             + "/\n"

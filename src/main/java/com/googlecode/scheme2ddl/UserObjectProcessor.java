@@ -186,7 +186,7 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
         } else if (userObject.getType().equals("DATABASE LINK") && !userObject.getSchema().equals("SYS")
                 && fixCreateDBLinksOwner)
         {
-            res = DDLFormatter.fixCreateDBLink(res, userObject.getSchema(), userObjectDao);
+            res = DDLFormatter.fixCreateDBLink(res, userObject.getName(), userObject.getSchema(), userObjectDao);
         }
 
         Set<String> dependedTypes = dependencies.get(userObject.getType());

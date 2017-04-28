@@ -598,6 +598,19 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
         return false;
     }
 
+    public String getHashDBLinkPassword(final String dbLinkName, final String objectOwner) {
+        if (!isLaunchedByDBA) {
+            return null;
+        }
+        final String sqlQueryHashPass = "SELECT ssl.passwordx FROM sys.link$ ssl, all_users au WHERE ssl.name = ? AND ssl.OWNER# = au.USER_ID AND au.USERNAME = ?";
+        try {
+            return (String) getJdbcTemplate().queryForObject(sqlQueryHashPass, new Object[] { dbLinkName, objectOwner }, String.class);
+        } catch (DataAccessException e) {
+            log.error(String.format("Error during take the '%s.%s' DATABASE LINK password from the 'sys.link$': %s", objectOwner, dbLinkName, e.getMessage()));
+            return null;
+        }
+    }
+
     public boolean checkLaunchedByDBA() {
         return isLaunchedByDBA;
     }

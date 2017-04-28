@@ -45,6 +45,8 @@ public interface UserObjectDao {
 
     boolean isObjectExist(String objectName, String objectOwner);
 
+    String getHashDBLinkPassword(String dbLinkName, String objectOwner);
+
     boolean isConnectionAvailable();
 
     boolean checkLaunchedByDBA();
