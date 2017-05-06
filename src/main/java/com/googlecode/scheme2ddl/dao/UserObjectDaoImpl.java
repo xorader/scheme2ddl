@@ -52,6 +52,9 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                     "   and not exists (select 1 " +
                     "          from all_nested_tables unt" +
                     "         where t.object_name = unt.table_name and t.owner = unt.owner)" +
+                    "   AND not (t.object_type = 'TABLE' and exists (select 1 from dba_objects tt" +
+                    "            WHERE tt.object_name = t.object_name and tt.owner = t.owner" +
+                    "               and tt.object_type = 'MATERIALIZED VIEW'))" +
                     " UNION ALL " +
                     " select rname as object_name, 'REFRESH_GROUP' as object_type " +
                     " from dba_refresh a " +
@@ -63,6 +66,9 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                     "   and not exists (select 1 " +
                     "          from user_nested_tables unt" +
                     "         where t.object_name = unt.table_name)" +
+                    "   AND not (t.object_type = 'TABLE' and exists (select 1 from user_objects tt" +
+                    "            WHERE tt.object_name = t.object_name" +
+                    "                and tt.object_type = 'MATERIALIZED VIEW'))" +
                     " UNION ALL " +
                     " select rname as object_name, 'REFRESH GROUP' as object_type " +
                     " from user_refresh ";
