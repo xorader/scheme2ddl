@@ -395,7 +395,8 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
             "BEGIN\n" +
             "  handle := DBMS_METADATA.OPEN('" + type + "');" +
             (schemaName != null ? ("  DBMS_METADATA.SET_FILTER(handle,'BASE_OBJECT_SCHEMA', '" + schemaName + "');") : "") +
-            "  dbms_metadata.SET_FILTER(handle,'BASE_OBJECT_TYPE', '" + parent_type + "');" +
+            // -- Fix Oracle bug for taking MATERIALIZED_VIEW dependent objects (do not set filter on BASE_OBJECT_TYPE for it).
+            (parent_type.equalsIgnoreCase("MATERIALIZED_VIEW") ? "" : "  dbms_metadata.SET_FILTER(handle,'BASE_OBJECT_TYPE', '" + parent_type + "');") +
             "  dbms_metadata.SET_FILTER(handle,'BASE_OBJECT_NAME', '" + parent_name + "');" +
             //  -- Exclude system-generated indexes/triggers
             (type.equalsIgnoreCase("INDEX") || type.equalsIgnoreCase("TRIGGER") ?  "  dbms_metadata.SET_FILTER(handle,'SYSTEM_GENERATED', false);" : "") +
@@ -416,7 +417,7 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
             public Object doInConnection(Connection connection) throws SQLException, DataAccessException {
                 java.sql.Clob clob;
                 applyTransformParameters(connection);
-                //log.info(String.format("qq %s - %s => %s", parent_name, parent_type, type));
+                //log.info(String.format("qq %s - %s => %s : '%s'", parent_name, parent_type, type, query));
                 CallableStatement cs = connection.prepareCall(query);
                 cs.registerOutParameter(1, java.sql.Types.CLOB);
                 try {

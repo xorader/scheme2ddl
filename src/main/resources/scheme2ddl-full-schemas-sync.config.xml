@@ -192,7 +192,7 @@
         <entry key="MATERIALIZED VIEW">
             <set>
                 <value>COMMENT</value>
-                <value>INDEX</value>
+                <!--value>INDEX</value--> <!-- not need this autocreated dependable objects -->
                 <value>MATERIALIZED_VIEW_LOG</value>
                 <value>OBJECT_GRANT</value>
             </set>
