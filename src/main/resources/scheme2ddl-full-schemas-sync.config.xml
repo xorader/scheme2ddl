@@ -58,6 +58,7 @@
         <entry key="fixCreateDBLinksOwner" value="true"/> <!-- Special way for CREATE DATABASE LINK objects with correct OWNER (for current schema) -->
         <entry key="isIgnoreDbmsJobsErrors" value="true"/> <!-- Ignore errors during export 'DBMS JOB' objects and continue exporting -->
         <entry key="isGenerateColumnNamesForInserts" value="false"/> <!-- generate INSERT statemens for DATA_TABLES with column names -->
+        <entry key="fixJobNumberInRefreshGroup" value="true"/> <!-- Replace job number to zero (0) in the 'REFRESH GROUP's creating -->
     </util:map>
 
     <!-- http://download.oracle.com/docs/cd/B19306_01/appdev.102/b14258/d_metada.htm#BGBJBFGE -->

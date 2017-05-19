@@ -42,6 +42,7 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
     private String sortingByColumnsRegexpList = null;
     private String dataCharsetName = null;
     private boolean isIgnoreDbmsJobsErrors = false;
+    private boolean fixJobNumberInRefreshGroup = false;
 
     public UserObject process(UserObject userObject) throws Exception {
         String ddl;
@@ -187,6 +188,8 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
                 && fixCreateDBLinksOwner)
         {
             res = DDLFormatter.fixCreateDBLink(res, userObject.getName(), userObject.getSchema(), userObjectDao);
+        } else if (userObject.getType().equals("REFRESH GROUP") && fixJobNumberInRefreshGroup) {
+            res = DDLFormatter.fixJobNumberInRefreshGroup(res);
         }
 
         Set<String> dependedTypes = dependencies.get(userObject.getType());
@@ -343,6 +346,11 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
         {
             this.isIgnoreDbmsJobsErrors = true;
         }
+        if (settingsUserObjectProcessor.get("fixJobNumberInRefreshGroup") != null
+                && settingsUserObjectProcessor.get("fixJobNumberInRefreshGroup"))
+        {
+            this.fixJobNumberInRefreshGroup = true;
+        }
     }
 
     public void setSortingByColumnsRegexpList(String list) {
@@ -367,5 +375,9 @@ public class UserObjectProcessor implements ItemProcessor<UserObject, UserObject
 
     public void setFixCreateDBLinksOwner(boolean fixCreateDBLinksOwner) {
         this.fixCreateDBLinksOwner = fixCreateDBLinksOwner;
+    }
+
+    public void setFixJobNumberInRefreshGroup(boolean fixJobNumberInRefreshGroup) {
+        this.fixJobNumberInRefreshGroup = fixJobNumberInRefreshGroup;
     }
 }

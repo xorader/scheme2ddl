@@ -56,10 +56,13 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
                     "            WHERE tt.object_name = t.object_name and tt.owner = t.owner" +
                     "               and tt.object_type = 'MATERIALIZED VIEW'))" +
                     " UNION ALL " +
-                    " select rname as object_name, 'REFRESH_GROUP' as object_type " +
+                    " select rname as object_name, 'REFRESH GROUP' as object_type " +
                     " from dba_refresh a " +
                     " where a.rowner = '" + schemaName + "' ";
         else
+            // Attention: The "select dbms_metadata.get_ddl('REFRESH_GROUP', '...') from dual;" query is broken
+            //            in the '11.2.0.4' Oracle DB (workes in the '11.2.0.2') for simple user (this is workes only for sysdba).
+
             sql = "select t.object_name, t.object_type " +
                     "  from user_objects t " +
                     " where t.generated = 'N' " +
@@ -113,8 +116,10 @@ public class UserObjectDaoImpl extends JdbcDaoSupport implements UserObjectDao {
     public List<UserObject> findDmbsJobs() {
         String tableName = isLaunchedByDBA ? "dba_jobs" : "user_jobs";
         String whereClause = isLaunchedByDBA ? "schema_user = '" + schemaName + "'" : "schema_user != 'SYSMAN'";
-        String sql = "select job || '' as object_name, 'DBMS JOB' as object_type " +
-                "from  " + tableName + " where " + whereClause;
+        String refreshTableName = isLaunchedByDBA ? "dba_refresh" : "user_refresh";
+        String sql = "SELECT job || '' as object_name, 'DBMS JOB' as object_type " +
+                "FROM  " + tableName + " jj WHERE " + whereClause +
+                "AND NOT EXISTS (SELECT 1 FROM "+refreshTableName+" rtn WHERE rtn.job = jj.job)"; // exclude jobs which in the REFRESH_GROUPs present
         return getJdbcTemplate().query(sql, new UserObjectRowMapper());
     }
 

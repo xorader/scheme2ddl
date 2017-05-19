@@ -506,4 +506,18 @@ public class DDLFormatter {
 
         return resultDdl;
     }
+
+    private static final Pattern patternJobNumberInRefreshGroup = Pattern.compile(
+            "(?<part1>[ \t\r\n]*BEGIN[ \t\r\n]+dbms_refresh.make\\(.+job[ \t\r\n]*=>[ \t\r\n]*)[0-9]+(?<part2>[ \t\r\n]*,.*)",
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+
+    public static String fixJobNumberInRefreshGroup(final String oneDdl) {
+        Matcher matchDdl = patternJobNumberInRefreshGroup.matcher(oneDdl);
+
+        if (!matchDdl.find()) {
+            return oneDdl;
+        }
+
+        return matchDdl.group("part1") + "0" + matchDdl.group("part2");
+    }
 }
