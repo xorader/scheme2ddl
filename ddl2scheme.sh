@@ -384,6 +384,18 @@ sql_finding_errors_in_sqlplus_output ( )
 		fi
 	fi
 
+	if [ $type_name = "REFRESH_GROUPS" ] ; then
+		# We ignore errors:
+		#   * ORA-23403: refresh group "XXX"."YYY" already exists
+		#   * ORA-23410: materialized view "ZZZ"."BBB" is already in a refresh group
+		# because the MATERIALIZED_VIEWS objects can create REFRESH_GROUPS auto (by the "REFRESH FORCE ON DEMAND" option).
+		if [ -n "$ora_ignore_addons" ] ; then
+			ora_ignore_addons="${ora_ignore_addons}|23403:|23410:"
+		else
+			ora_ignore_addons="(?!23403:|23410:"
+		fi
+	fi
+
 	if [ -n "$ora_ignore_addons" ] ; then
 		ora_ignore_addons="${ora_ignore_addons})"
 	fi
