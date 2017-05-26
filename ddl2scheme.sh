@@ -393,7 +393,7 @@ sql_finding_errors_in_sqlplus_output ( )
 		if [ -n "$ora_ignore_addons" ] ; then
 			ora_ignore_addons="${ora_ignore_addons}|23403:|23410:|06512:"
 		else
-			ora_ignore_addons="(?!23403:|23410:06512:"
+			ora_ignore_addons="(?!23403:|23410:|06512:"
 		fi
 	fi
 
