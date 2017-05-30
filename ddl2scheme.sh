@@ -24,6 +24,7 @@ IS_CREATE_TABLESPACES_ONLY_COMMON=0
 IS_ONLY_CHECK_CONNECT=0
 IS_ONLY_DROP_SCHEMES=0
 IS_ONLY_RECOMPILE_INVALIDS=0
+IS_REPLACE_JOB_NUMBERS=0
 INPUT_DIR="output"
 SQLPLUS_FIND_DIR="/opt/app/oracle/"
 LOG_DIR=
@@ -288,6 +289,11 @@ sql_format_header ( )
 		VIEWS)
 			echo "set sqlblanklines on"
 			;;
+		DBMS_JOBS)
+			if [ $IS_REPLACE_JOB_NUMBERS -eq 1 ] ; then
+				echo "SET serveroutput ON"
+			fi
+			;;
 	esac
 	# Sets off the character used to prefix substitution variables. Set the '&' off.
 	# ON or OFF controls whether SQL*Plus will scan commands for substitution variables and replace them with
@@ -304,13 +310,25 @@ sql_format_header ( )
 
 sql_parse_body ( )
 {
-	local type_name=$1
+	local type_name="$1"
+	local fullfilename="$2"
 
 	# Copy standard input to standard output
 	case "$type_name" in
 		TABLES)
 			if [ $REMOVE_SEGMENT_CREATION_DEFERRED -eq 1 ] ; then
 				sed -r "s/(^|[ \t]+)SEGMENT CREATION DEFERRED([ \t]+|$)/\1\2/g"
+			else
+				cat
+			fi
+			;;
+		DBMS_JOBS)
+			if [ $IS_REPLACE_JOB_NUMBERS -eq 1 ] ; then
+				local filename=$(basename "$fullfilename")
+				local objectname="${filename%.*}"
+
+				# replace the dbms job number with the next unused if need
+				sed -r "s/BEGIN/DECLARE\n    ijob NUMBER := ${objectname};\n  check_job_present NUMBER;\nBEGIN\nLOOP\n  SELECT COUNT(*) INTO check_job_present FROM dba_jobs WHERE job = ijob;\n   EXIT WHEN (check_job_present = 0);\n  ijob := ijob + 10;\nEND LOOP;\nIF (ijob != ${objectname}) THEN DBMS_OUTPUT.PUT_LINE('New job number: ' || ijob); END IF;\n\n/" | sed -r "s/([ \t\r\n]+|\()(job[ \t\r\n]*=[ \t\r\n]*>[ \t\r\n]*)[0-9]+([ \t\r\n]*,)/\1\2ijob\3/"
 			else
 				cat
 			fi
@@ -629,7 +647,7 @@ process_sql_objects_in_dir_type ( )
 		else
 			echo -e "---\nProcessing $isqlfile" >> $logfile
 		fi
-		(sql_format_header $type_name; cat $isqlfile | sql_parse_body $type_name; sql_format_footer $type_name) \
+		(sql_format_header $type_name; cat $isqlfile | sql_parse_body "$type_name" "$isqlfile"; sql_format_footer $type_name) \
 			| ( $SQLPLUS_BIN -RESTRICT 3 -S $CONNECT_URL ; echo "$?" >$error_code_sqlplus_file ) \
 			| sql_finding_errors_in_sqlplus_output $type_name \
 			| sql_final_parse_output $type_name "$logfile"
@@ -937,6 +955,7 @@ do
 	  -ctbs) IS_CREATE_TABLESPACES_ONLY_COMMON=1; IS_CREATE_TABLESPACES=1 ;;
 	  -onlydropchemas) IS_ONLY_DROP_SCHEMES=1 ;;
 	  -onlyrecompileinvalids) IS_ONLY_RECOMPILE_INVALIDS=1 ;;
+	  -rjn) IS_REPLACE_JOB_NUMBERS=1 ;;
 	  -i) INPUT_DIR="$2"; shift ;;
           -l) LOG_DIR="$2"; shift ;;
 	  --) shift; break ;;
@@ -978,6 +997,7 @@ do
 		echo "                            For 'Single schema loading': delete all objects for schema"
 		echo "                                    and exit."
 		echo "  -onlyrecompileinvalids -- recompile all invalid objects and exit."
+		echo "  -rjn    -- replace the dbms job numbers with the next unused if needed."
 		echo
 		echo "Examples run:"
 		echo "* ./ddl2scheme.sh -R -i /tmp/some_sql_single_directory SCOTT/TIGER@localhost/SIDNAME"
