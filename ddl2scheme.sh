@@ -328,7 +328,7 @@ sql_parse_body ( )
 				local objectname="${filename%.*}"
 
 				# replace the dbms job number with the next unused if need
-				sed -r "s/BEGIN/DECLARE\n    ijob NUMBER := ${objectname};\n  check_job_present NUMBER;\nBEGIN\nLOOP\n  SELECT COUNT(*) INTO check_job_present FROM dba_jobs WHERE job = ijob;\n   EXIT WHEN (check_job_present = 0);\n  ijob := ijob + 10;\nEND LOOP;\nIF (ijob != ${objectname}) THEN DBMS_OUTPUT.PUT_LINE('New job number: ' || ijob); END IF;\n\n/" | sed -r "s/([ \t\r\n]+|\()(job[ \t\r\n]*=[ \t\r\n]*>[ \t\r\n]*)[0-9]+([ \t\r\n]*,)/\1\2ijob\3/"
+				sed -r "s/^BEGIN$/DECLARE\n    ijob NUMBER := ${objectname};\n  check_job_present NUMBER;\nBEGIN\nLOOP\n  SELECT COUNT(*) INTO check_job_present FROM dba_jobs WHERE job = ijob;\n   EXIT WHEN (check_job_present = 0);\n  ijob := ijob + 10;\nEND LOOP;\nIF (ijob != ${objectname}) THEN DBMS_OUTPUT.PUT_LINE('New job number: ' || ijob); END IF;\n\n/" | sed -r "s/([ \t\r\n]+|\()(job[ \t\r\n]*=[ \t\r\n]*>[ \t\r\n]*)[0-9]+([ \t\r\n]*,)/\1\2ijob\3/"
 			else
 				cat
 			fi
