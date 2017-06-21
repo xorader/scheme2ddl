@@ -443,6 +443,9 @@ sql_final_parse_types_cut ( )
 		CONSTRAINTS|REF_CONSTRAINTS)
 			perl -pe 'BEGIN { $altered_counter=0 } END { print "$altered_counter table(s) altered..\n" if ($altered_counter > 0); } $altered_counter++ if s/^Table altered.\n$//;'
 			;;
+		DB_LINKS)
+			perl -pe 'print "DDL2SCHEME-ADVICE: We recommend that you execute the: GRANT CREATE DATABASE LINK TO \"THIS_SCHEMA_NAME\";\n" if /^ORA-01031:/;'
+			;;
 		*)	# other types
 			cat
 			;;
@@ -1010,7 +1013,7 @@ do
 done
 
 CONNECT_URL="$@"
-CONNECT_URL_JAVA="$CONNECT_URL"
+CONNECT_URL_JAVA=`echo -n "$CONNECT_URL" | sed -e 's#@\([^/][^/]\)#@//\1#'`
 
 if [ -z "$CONNECT_URL" ]; then
 	echo "connect URL empty"

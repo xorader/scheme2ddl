@@ -134,7 +134,7 @@ public class Main
         options.addOption("h", "help", false, "show this help message and quit.");
         options.addOption("v", "verbose", false, "do more verbosity.");
         options.addOption("D", "debug", false, "do extremly verbosity.");
-        options.addOption(Option.builder("u").longOpt("url").required(true).hasArg().desc("connection url to DB. Example: SCOTT/TIGER@localhost:1521:SIDNAME").build());
+        options.addOption(Option.builder("u").longOpt("url").required(true).hasArg().desc("connection url to DB. Example: SCOTT/TIGER@//localhost:1521:SIDNAME").build());
         options.addOption("l", "lobtype", true, "cell type. Can be 'CLOB', 'BLOB' or 'XMLTYPE'. If not specified - will get from the file extention (file extention can be '" + OracleBackend.blobFileExtention + "', '" + OracleBackend.clobFileExtention + "' or '" + OracleBackend.xmlFileExtention + "').");
         options.addOption("t", "table", true, "cell table name. If not specified - will get from the directory name (parent of the file).");
         options.addOption("c", "column", true, "cell column name. If not specified - will get from the part of filename (characters before first dot).");
@@ -172,6 +172,7 @@ public class Main
         helpFormatter.printHelp( "file2cell.jar", options, true);
         System.out.println("Example autodetection parts from the full filename:" + newline + " ...anypath/SCHEMA_NAME/data_tables/CELL_TABLE_NAME/CELL_COLUMN_NAME.CELL_ID_VALUE.blob_data");
         System.out.println("Example usage: " + newline + " java -Doracle.net.tns_admin=/etc/oracle -Djava.security.egd=file:/dev/./urandom -jar file2cell.jar -u 'sys as sysdba/somepass@SQL_TEST_HOST2' -d somepath/with_lobs_dir -s 'SCOTT'");
+		System.out.println(" java ... -u 'sys as sysdba/somepass@//localhost:1521/SOMESID'");
     }
 }
 
