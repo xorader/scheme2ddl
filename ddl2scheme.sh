@@ -757,7 +757,7 @@ get_schema_list ( )
 		idir_name=`basename $idir`
 		idir_upper=`echo "$idir_name" | tr '[:lower:]' '[:upper:]'`
 		if ! echo ",$CREATE_ORDER_TYPES,$log_defdir_upper,TABLESPACES,SYS,PUBLIC," | grep -q ",$idir_upper," ; then
-		  if [ -z "$result_list"] ; then
+		  if [ -z "$result_list" ] ; then
 			result_list="$idir_name"
 		  else
 			result_list="$result_list $idir_name"
