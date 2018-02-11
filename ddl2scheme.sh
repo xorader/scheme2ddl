@@ -32,6 +32,8 @@ LOG_DIRNAME_DEAFULT="logs_ddl2scheme"
 LOG_ALL_ERRORS_LIST="all_list_errors_here.log"
 #TMPDIR=/tmp
 
+SCHEMA_LIST=
+
 # Do not touch IT unless you really know what you are doing!!!
 # Some special(virtual) types:
 # * _TABLESPACES_ - process the '<Input directory>/PUBLIC/TABLESPACES/' directory for CREATE TABLESPACE objects (run process_tablespaces function).
@@ -126,12 +128,18 @@ recompile_invalid_objects ( )
 
 	local recompile_logfile="${LOG_DIR}/recompile_invalid_objects-${recompile_count}.log"
 	local recompile_run_cmd_file="${LOG_DIR}/run_recompile_invalid-${recompile_count}.sql"
+	local recompile_scheme_filter_owner=""
 
 	while [ -f $recompile_logfile -o -f $recompile_run_cmd_file ] ; do
 		recompile_count=`echo "$recompile_count + 1" | bc`
 		recompile_logfile="${LOG_DIR}/recompile_invalid_objects-${recompile_count}.log"
 		recompile_run_cmd_file="${LOG_DIR}/run_recompile_invalid-${recompile_count}.sql"
 	done
+
+	if [ -n "$SCHEMA_LIST" ] ; then
+		schema_list_upper_comma=`echo "$SCHEMA_LIST" | tr '[a-z]' '[A-Z]' | sed -e "s/\([^ ]*\)/'\1'/g" -e "s/ /,/g"`
+		recompile_scheme_filter_owner="AND owner IN ($schema_list_upper_comma)"
+	fi
 
 	# usefull links:
 	# http://www.orafaq.com/node/2008
@@ -160,12 +168,12 @@ set embedded on;
 set wrap on;
 
 Spool $recompile_run_cmd_file
-select 'ALTER ' || object_type || ' ' || owner || '.' || object_name || ' COMPILE;' from all_objects Where status <> 'VALID' And object_type IN ('VIEW','SYNONYM','PROCEDURE','FUNCTION','PACKAGE','TRIGGER') order by object_type, owner, object_name;
-select 'ALTER PACKAGE ' || owner || '.' || object_name || ' COMPILE BODY;' from all_objects where status <> 'VALID' And object_type = 'PACKAGE BODY' order by owner, object_name;
-select 'ALTER MATERIALIZED VIEW ' || owner || '.' || object_name || ' COMPILE;' from all_objects where status <> 'VALID' And object_type = 'UNDEFINED' order by owner, object_name;
-select 'ALTER JAVA CLASS "' || owner || '"."' || object_name || '" RESOLVE;' from all_objects where status <> 'VALID' And object_type = 'JAVA CLASS' order by owner, object_name;
-select 'ALTER TYPE ' || owner || '.' || object_name || ' COMPILE BODY;' from all_objects where status <> 'VALID' And object_type = 'TYPE BODY' order by owner, object_name;
-Select 'ALTER PUBLIC SYNONYM ' || object_name || ' COMPILE;' from all_objects Where status <> 'VALID' And owner = 'PUBLIC' And object_type = 'SYNONYM' order by owner, object_name;
+select 'ALTER ' || object_type || ' ' || owner || '.' || object_name || ' COMPILE;' from all_objects Where status <> 'VALID' And object_type IN ('VIEW','SYNONYM','PROCEDURE','FUNCTION','PACKAGE','TRIGGER') $recompile_scheme_filter_owner order by object_type, owner, object_name;
+select 'ALTER PACKAGE ' || owner || '.' || object_name || ' COMPILE BODY;' from all_objects where status <> 'VALID' And object_type = 'PACKAGE BODY' $recompile_scheme_filter_owner order by owner, object_name;
+select 'ALTER MATERIALIZED VIEW ' || owner || '.' || object_name || ' COMPILE;' from all_objects where status <> 'VALID' And object_type = 'UNDEFINED' $recompile_scheme_filter_owner order by owner, object_name;
+select 'ALTER JAVA CLASS "' || owner || '"."' || object_name || '" RESOLVE;' from all_objects where status <> 'VALID' And object_type = 'JAVA CLASS' $recompile_scheme_filter_owner order by owner, object_name;
+select 'ALTER TYPE ' || owner || '.' || object_name || ' COMPILE BODY;' from all_objects where status <> 'VALID' And object_type = 'TYPE BODY' $recompile_scheme_filter_owner order by owner, object_name;
+Select 'ALTER PUBLIC SYNONYM ' || object_name || ' COMPILE;' from all_objects Where status <> 'VALID' And owner = 'PUBLIC' And object_type = 'SYNONYM' $recompile_scheme_filter_owner order by owner, object_name;
 Spool off;
 
 --set heading on;
@@ -738,25 +746,44 @@ drop_user ( )
 	fi
 }
 
+# get schema list from Input directory, except for the "TABLESPACES, SYS, PUBLIC".
+get_schema_list ( )
+{
+	local directory=$1
+	local log_defdir_upper=`echo "$LOG_DIRNAME_DEAFULT" | tr '[:lower:]' '[:upper:]'`
+	local result_list=""
+
+	for idir in `find "$directory" -maxdepth 1 -mindepth 1 -type d | sort ` ; do
+		idir_name=`basename $idir`
+		idir_upper=`echo "$idir_name" | tr '[:lower:]' '[:upper:]'`
+		if ! echo ",$CREATE_ORDER_TYPES,$log_defdir_upper,TABLESPACES,SYS,PUBLIC," | grep -q ",$idir_upper," ; then
+		  if [ -z "$result_list"] ; then
+			result_list="$idir_name"
+		  else
+			result_list="$result_list $idir_name"
+		  fi
+		fi
+	done
+
+	echo "$result_list"
+}
+
 drop_all_schemas ( )
 {
 	local directory=$1
 	local log_defdir_upper=`echo "$LOG_DIRNAME_DEAFULT" | tr '[:lower:]' '[:upper:]'`
 
-	for idir in `find "$directory" -maxdepth 1 -mindepth 1 -type d | sort ` ; do
-		idir_upper=`basename $idir | tr '[:lower:]' '[:upper:]'`
-		if ! echo ",$CREATE_ORDER_TYPES,$log_defdir_upper,TABLESPACES,SYS,PUBLIC," | grep -q ",$idir_upper," ; then
-			local schema="$idir_upper"
-			local user_dir=`find $idir -maxdepth 1 -mindepth 1 -type d -iname "users"`
-			if [ -z "$user_dir" ] ; then
-				continue
-			fi
-			local user_file=`find $user_dir -maxdepth 1 -mindepth 1 -type f -iname "${schema}.*"`
-			if [ -z "$user_file" ] ; then
-				continue
-			fi
-			drop_user "$schema"
+	for idir in $SCHEMA_LIST ; do
+		local schema=`echo "$idir" | tr '[:lower:]' '[:upper:]'`
+		local user_dir=`find $directory/$idir -maxdepth 1 -mindepth 1 -type d -iname "users"`
+		if [ -z "$user_dir" ] ; then
+			continue
 		fi
+		local user_file=`find $user_dir -maxdepth 1 -mindepth 1 -type f -iname "${schema}.*"`
+		if [ -z "$user_file" ] ; then
+			continue
+		fi
+		drop_user "$schema"
 	done
 }
 
@@ -950,7 +977,7 @@ do
 	  -v) VERBOSE=1 ;;
 	  -t) IS_ONLY_CHECK_CONNECT=1 ;;
 	  -e) IS_PAUSE_THEN_ERROR=1 ;;
-	  -s) IS_SINGLE_SCHEME=1 ; SINGLE_SCHEME_NAME="$2" ; shift ;;
+	  -s) IS_SINGLE_SCHEME=1 ; SINGLE_SCHEME_NAME="$2" ; SCHEMA_LIST="$2" ; shift ;;
 	  -S) IS_SHOW_SPINNER=0 ;;
 	  -R) IS_DROP_SCHEME=1 ;;
 	  -scheds) IS_RESTART_DBMS_SCHEDULER=0 ;;
@@ -1071,6 +1098,10 @@ fi
 # prepare directory for logs
 if [ ! -d $LOG_DIR ] ; then
 	mkdir -p $LOG_DIR
+fi
+
+if [ $IS_MULTY_SCHEME -eq 1 ] ; then
+	SCHEMA_LIST=`get_schema_list $INPUT_DIR`
 fi
 
 if [ $IS_ONLY_RECOMPILE_INVALIDS -eq 1 ] ; then
