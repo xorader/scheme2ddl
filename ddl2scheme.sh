@@ -25,6 +25,7 @@ IS_ONLY_CHECK_CONNECT=0
 IS_ONLY_DROP_SCHEMES=0
 IS_ONLY_RECOMPILE_INVALIDS=0
 IS_REPLACE_JOB_NUMBERS=0
+IS_FORCEUSERS=0
 INPUT_DIR="output"
 SQLPLUS_FIND_DIR="/opt/app/oracle/"
 LOG_DIR=
@@ -139,6 +140,8 @@ recompile_invalid_objects ( )
 	if [ -n "$SCHEMA_LIST" ] ; then
 		schema_list_upper_comma=`echo "$SCHEMA_LIST" | tr '[a-z]' '[A-Z]' | sed -e "s/\([^ ]*\)/'\1'/g" -e "s/ /,/g"`
 		recompile_scheme_filter_owner="AND owner IN ($schema_list_upper_comma)"
+	elif [ -n "$SINGLE_SCHEME_NAME" ] ; then
+		recompile_scheme_filter_owner="AND owner = '$SINGLE_SCHEME_NAME'"
 	fi
 
 	# usefull links:
@@ -793,6 +796,8 @@ drop_all_objects_in_current_schema ( )
 
 	echo -n "Drop all objects in current schema and exit (logs in '$logfile')... "
 	cat << EOF_DROPALL | $SQLPLUS_BIN -S $CONNECT_URL > $logfile
+SET serveroutput ON format wrapped;
+
 CREATE OR REPLACE
 procedure  DROP_ALL_SCHEMA_OBJECTS AS
 PRAGMA AUTONOMOUS_TRANSACTION;
@@ -821,11 +826,21 @@ cursor c_get_dbms_jobs is
 BEGIN
   begin
     for object_rec in c_get_objects loop
-      execute immediate ('drop '||object_rec.object_type_2||' ' ||object_rec.obj_name2);
+      begin
+        dbms_output.put_line('drop '||object_rec.object_type_2||' ' ||object_rec.obj_name2 || ';');
+        execute immediate ('drop '||object_rec.object_type_2||' ' ||object_rec.obj_name2);
+      EXCEPTION
+        WHEN OTHERS THEN
+          dbms_output.put_line('... fail: ' || object_rec.obj_name2);
+      end;
     end loop;
     for object_rec in c_get_objects_type loop
       begin
-        execute immediate ('drop '||object_rec.object_type||' ' ||object_rec.obj_name);
+        dbms_output.put_line('drop '||object_rec.object_type||' ' ||object_rec.obj_name || ' FORCE;');
+        execute immediate ('drop '||object_rec.object_type||' ' ||object_rec.obj_name || ' FORCE');
+      EXCEPTION
+        WHEN OTHERS THEN
+          dbms_output.put_line('... fail: ' || object_rec.obj_name);
       end;
     end loop;
     for object_rec in c_get_dblinks loop
@@ -937,6 +952,10 @@ process_all_sql_objects_single ( )
 		type_name=`basename $idir | tr '[:lower:]' '[:upper:]'`
 
 		# TODO: make filters and skip filtered types here
+		if [ "$type_name" = "USERS" -a $IS_FORCEUSERS -eq 0 -a $IS_DROP_SCHEME -eq 0 ] ; then
+			echo "Skip processing the 'USERS' type directory."
+			continue
+		fi
 
 		if [ "$type_name" = "DBMS_JOBS" -o "$type_name" = "JOBS" ] ; then
 			dbms_scheduler_stop
@@ -988,6 +1007,7 @@ do
 	  -rjn) IS_REPLACE_JOB_NUMBERS=1 ;;
 	  -i) INPUT_DIR="$2"; shift ;;
           -l) LOG_DIR="$2"; shift ;;
+	  -forceusers) IS_FORCEUSERS=1 ;;
 	  --) shift; break ;;
 	  -*)
 		echo "version '$SCRIPT_NAME': $VERSION"
@@ -1028,6 +1048,7 @@ do
 		echo "                                    and exit."
 		echo "  -onlyrecompileinvalids -- recompile all invalid objects and exit."
 		echo "  -rjn    -- replace the dbms job numbers with the next unused if needed."
+		echo "  -forceusers  -- do force 'USERS' type directory processing for 'Single schema loading'"
 		echo
 		echo "Examples run:"
 		echo "* ./ddl2scheme.sh -R -i /tmp/some_sql_single_directory SCOTT/TIGER@localhost/SIDNAME"
@@ -1056,6 +1077,8 @@ if [ -n "`echo $user | grep -E ".+as +sysdba *"`" ] ; then
 	if [ $IS_SINGLE_SCHEME -eq 0 ] ; then
 		IS_MULTY_SCHEME=1
 	fi
+else
+	SINGLE_SCHEME_NAME="`echo "$user" | tr '[a-z]' '[A-Z]'`"
 fi
 
 if [ $IS_ONLY_CHECK_CONNECT -eq 0 ] ; then
